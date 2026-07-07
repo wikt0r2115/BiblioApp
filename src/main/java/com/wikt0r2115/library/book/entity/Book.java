@@ -9,21 +9,27 @@ import java.time.Year;
 
 @Entity
 public class Book {
-    @Column(nullable = false, unique = true)
-    private String isbn;
-    @Column(nullable = false)
-    private String title;
-    @Column
-    private int publicationYear;
-    @Column
-    private boolean available;
-    @Column(nullable = false)
-    private String author;
-    @Column(nullable = false)
-    private String category;
     @Id
     @GeneratedValue
     private Long bookId;
+
+    @Column(nullable = false, unique = true)
+    private String isbn;
+
+    @Column(nullable = false)
+    private String title;
+
+    @Column
+    private int publicationYear;
+
+    @Column
+    private boolean available;
+
+    @Column(nullable = false)
+    private String author;
+
+    @Column(nullable = false)
+    private String category;
 
     protected Book(){}
 
