@@ -135,11 +135,15 @@ public class BookTest {
     @Test
     void updateDetails_whenValidData_changesData(){
         Book book = sampleBook();
+        String oldIsbn = book.getIsbn();
+        boolean oldAvailability = book.isAvailable();
         book.updateDetails("Title",2018,"Author","Category");
         assertEquals("Title",book.getTitle());
         assertEquals(2018,book.getPublicationYear());
         assertEquals("Author",book.getAuthor());
         assertEquals("Category",book.getCategory());
+        assertEquals(oldIsbn, book.getIsbn());
+        assertEquals(oldAvailability, book.isAvailable());
     }
 
     @Test

@@ -125,10 +125,14 @@ public class Book {
     }
 
     public void updateDetails(String title, int publicationYear, String author, String category) {
-        this.title = normalizeTitle(title);
-        this.publicationYear = normalizePublicationYear(publicationYear);
-        this.author = normalizeAuthor(author);
-        this.category = normalizeCategory(category);
+        String newTitle = normalizeTitle(title);
+        int newPublicationYear = normalizePublicationYear(publicationYear);
+        String newAuthor = normalizeAuthor(author);
+        String newCategory = normalizeCategory(category);
+        this.title = newTitle;
+        this.publicationYear = newPublicationYear;
+        this.author = newAuthor;
+        this.category = newCategory;
     }
 
     public void changeIsbn(String isbn) {
