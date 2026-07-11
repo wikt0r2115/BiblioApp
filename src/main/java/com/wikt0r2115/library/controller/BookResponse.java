@@ -1,6 +1,6 @@
-package com.wikt0r2115.library.book.dto;
+package com.wikt0r2115.library.controller;
 
-import com.wikt0r2115.library.book.entity.Book;
+import com.wikt0r2115.library.domain.Book;
 
 public record BookResponse(
         Long id,

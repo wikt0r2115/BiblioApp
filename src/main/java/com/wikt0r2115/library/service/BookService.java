@@ -1,10 +1,10 @@
-package com.wikt0r2115.library.book.service;
+package com.wikt0r2115.library.service;
 
-import com.wikt0r2115.library.book.entity.Book;
-import com.wikt0r2115.library.book.repository.BookRepository;
+import com.wikt0r2115.library.domain.Book;
+import com.wikt0r2115.library.infrastructure.BookRepository;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Page;
 import org.springframework.stereotype.Service;
-
-import java.util.List;
 
 @Service
 public class BookService {
@@ -21,11 +21,15 @@ public class BookService {
 
     public Book findById(Long id){
         return bookRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Book not found "+id));
+                .orElseThrow(() -> new BookNotFoundException(id));
     }
 
-    public List<Book> findAll(){
-        return bookRepository.findAll();
+    public Page<Book> findAll(String author, String title, Boolean available, Pageable pageable){
+        return bookRepository.findWithFilters(
+                normalizeTextFilter(author),
+                normalizeTextFilter(title),
+                available,
+                pageable);
     }
 
     public Book updateDetails(Long id, String title, int publicationYear, String author, String category){
@@ -56,5 +60,9 @@ public class BookService {
         Book book = findById(id);
         bookRepository.delete(book);
         return book;
+    }
+
+    private String normalizeTextFilter(String value) {
+        return value == null || value.isBlank() ? null : value.strip();
     }
 }

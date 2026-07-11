@@ -1,6 +1,5 @@
-package com.wikt0r2115.library.book;
+package com.wikt0r2115.library.domain;
 
-import com.wikt0r2115.library.book.entity.Book;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;

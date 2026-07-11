@@ -1,4 +1,4 @@
-package com.wikt0r2115.library.book.entity;
+package com.wikt0r2115.library.domain;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -14,6 +14,7 @@ public class Book {
     private Long bookId;
 
     @Column(nullable = false, unique = true)
+    //@ISBN
     private String isbn;
 
     @Column(nullable = false)
