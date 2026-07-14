@@ -1,9 +1,8 @@
 package com.wikt0r2115.library.domain;
 
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.Id;
+import jakarta.persistence.*;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotBlank;
 
 import java.time.Year;
 
@@ -13,22 +12,28 @@ public class Book {
     @GeneratedValue
     private Long bookId;
 
+    @NotBlank(message = "isbn must not be blank")
     @Column(nullable = false, unique = true)
+
     //@ISBN
     private String isbn;
 
+    @NotBlank(message = "title must not be blank")
     @Column(nullable = false)
     private String title;
 
+    @Min(value = 1450, message = "Year must be minimum 1450")
     @Column
     private int publicationYear;
 
     @Column
     private boolean available;
 
+    @NotBlank(message = "author must not be blank")
     @Column(nullable = false)
     private String author;
 
+    @NotBlank(message = "category must not be blank")
     @Column(nullable = false)
     private String category;
 

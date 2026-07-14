@@ -56,10 +56,9 @@ public class BookService {
         return bookRepository.save(book);
     }
 
-    public Book deleteBook(Long id){
+    public void deleteBook(Long id){
         Book book = findById(id);
         bookRepository.delete(book);
-        return book;
     }
 
     private String normalizeTextFilter(String value) {

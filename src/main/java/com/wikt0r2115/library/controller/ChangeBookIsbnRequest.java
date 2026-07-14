@@ -1,4 +1,4 @@
-package com.wikt0r2115.library.book.dto;
+package com.wikt0r2115.library.controller;
 
 import jakarta.validation.constraints.NotBlank;
 

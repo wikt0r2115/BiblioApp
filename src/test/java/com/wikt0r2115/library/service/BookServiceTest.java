@@ -142,15 +142,14 @@ public class BookServiceTest {
     }
 
     @Test
-    public void deleteBook_whenBookExists_deletesAndReturnsBook(){
+    public void deleteBook_whenBookExists_deletesBook(){
         Book existingBook = sampleBook();
         when(bookRepository.findById(BOOK_ID))
                 .thenReturn(Optional.of(existingBook));
 
-        Book book = bookService.deleteBook(BOOK_ID);
+        bookService.deleteBook(BOOK_ID);
 
-        assertSame(existingBook, book);
-        verify(bookRepository).delete(book);
+        verify(bookRepository).delete(existingBook);
     }
 
     private Book sampleBook(){
