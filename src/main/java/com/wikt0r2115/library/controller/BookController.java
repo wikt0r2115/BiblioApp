@@ -28,14 +28,14 @@ public class BookController {
                 request.isbn(),
                 request.title(),
                 request.publicationYear(),
-                request.author(),
-                request.category()));
+                request.authorId(),
+                request.categoryIds()));
     }
 
     @GetMapping
     public PageResponse<BookResponse> findBooks(BookFilterRequest filter, Pageable pageable){
         Page<BookResponse> page = bookService.findAll(
-                filter.author(),
+                filter.authorId(),
                 filter.title(),
                 filter.available(),
                 pageable
@@ -55,8 +55,8 @@ public class BookController {
                 id,
                 request.title(),
                 request.publicationYear(),
-                request.author(),
-                request.category()));
+                request.authorId(),
+                request.categoryIds()));
     }
 
     @PutMapping("/{id}/isbn")

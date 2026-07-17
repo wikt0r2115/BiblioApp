@@ -5,6 +5,8 @@ import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 
 import java.time.Year;
+import java.util.Objects;
+import java.util.Set;
 
 @Entity
 public class Book {
@@ -29,23 +31,26 @@ public class Book {
     @Column
     private boolean available;
 
-    @NotBlank(message = "author must not be blank")
-    @Column(nullable = false)
-    private String author;
+    @ManyToOne(optional = false)
+    @JoinColumn(name = "author_id", nullable = false)
+    private Author author;
 
-    @NotBlank(message = "category must not be blank")
-    @Column(nullable = false)
-    private String category;
+    @ManyToMany
+    @JoinTable(name = "book_category",
+            joinColumns = @JoinColumn(name = "book_id"),
+            inverseJoinColumns = @JoinColumn(name = "category_id")
+            )
+    private Set<Category> categories;
 
     protected Book(){}
 
-    public Book(String isbn, String title, int publicationYear, String author, String category){
+    public Book(String isbn, String title, int publicationYear, Author author, Set<Category> categories){
         this.isbn = normalizeIsbn(isbn);
         this.title = normalizeTitle(title);
         this.publicationYear = normalizePublicationYear(publicationYear);
         this.available = true;
         this.author = normalizeAuthor(author);
-        this.category = normalizeCategory(category);
+        this.categories = normalizeCategories(categories);
     }
 
     private String normalizeIsbn(String isbn){
@@ -118,27 +123,29 @@ public class Book {
         return publicationYear;
     }
 
-    private String normalizeAuthor(String author){
-        if(author == null || author.isBlank())
-            throw new IllegalArgumentException("Author must not be blank");
-        return author.strip();
+    private Author normalizeAuthor(Author author){
+        if(author == null)
+            throw new IllegalArgumentException("Author must not be null");
+        return author;
     }
 
-    private String normalizeCategory(String category){
-        if(category == null || category.isBlank())
-            throw new IllegalArgumentException("Category must not be blank");
-        return category.strip();
+    private Set<Category> normalizeCategories(Set<Category> categories){
+        if(categories == null || categories.isEmpty())
+            throw new IllegalArgumentException("Categories must not be empty");
+        if(categories.stream().anyMatch(Objects::isNull))
+            throw new IllegalArgumentException("Categories must not contain null");
+        return categories;
     }
 
-    public void updateDetails(String title, int publicationYear, String author, String category) {
+    public void updateDetails(String title, int publicationYear, Author author, Set<Category> categories) {
         String newTitle = normalizeTitle(title);
         int newPublicationYear = normalizePublicationYear(publicationYear);
-        String newAuthor = normalizeAuthor(author);
-        String newCategory = normalizeCategory(category);
+        Author newAuthor = normalizeAuthor(author);
+        Set<Category> newCategories = normalizeCategories(categories);
         this.title = newTitle;
         this.publicationYear = newPublicationYear;
         this.author = newAuthor;
-        this.category = newCategory;
+        this.categories = newCategories;
     }
 
     public void changeIsbn(String isbn) {
@@ -163,8 +170,8 @@ public class Book {
     public Long getBookId() {return bookId;}
     public String getTitle(){return title;}
     public boolean isAvailable(){return available;}
-    public String getAuthor(){return author;}
-    public String getCategory(){return category;}
+    public Author getAuthor(){return author;}
+    public Set<Category> getCategories(){return categories;}
     public String getIsbn(){return isbn;}
     public int getPublicationYear(){return publicationYear;}
 }

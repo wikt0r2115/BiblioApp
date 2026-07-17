@@ -1,7 +1,7 @@
 package com.wikt0r2115.library.controller;
 
 public record BookFilterRequest(
-        String author,
+        Long authorId,
         String title,
         Boolean available
 ) {

@@ -2,6 +2,10 @@ package com.wikt0r2115.library.controller;
 
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.NotNull;
+
+import java.util.Set;
 
 public record UpdateBookDetailsRequest(
         @NotBlank(message = "Title must not be blank")
@@ -10,10 +14,10 @@ public record UpdateBookDetailsRequest(
         @Min(value = 1450, message = "Publication year must not be earlier than 1450")
         int publicationYear,
 
-        @NotBlank(message = "Author must not be blank")
-        String author,
+        @NotNull(message = "Author id must not be null")
+        Long authorId,
 
-        @NotBlank(message = "Category must not be blank")
-        String category
+        @NotEmpty(message = "Category ids must not be empty")
+        Set<Long> categoryIds
 ) {
 }
