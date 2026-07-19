@@ -1,6 +1,7 @@
 package com.wikt0r2115.library.controller;
 
 import com.wikt0r2115.library.service.BookNotFoundException;
+import com.wikt0r2115.library.service.MemberNotFoundException;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
@@ -21,13 +22,23 @@ public class ApiExceptionHandler {
         return problem;
     }
 
+    @ExceptionHandler(MemberNotFoundException.class)
+    public ProblemDetail handleMemberNotFound(MemberNotFoundException exception) {
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(
+                HttpStatus.NOT_FOUND,
+                "Member does not exist"
+        );
+        problem.setTitle("Member not found");
+        return problem;
+    }
+
     @ExceptionHandler(IllegalArgumentException.class)
     public ProblemDetail handleIllegalArgumentException(IllegalArgumentException exception){
         ProblemDetail problem = ProblemDetail.forStatusAndDetail(
                 HttpStatus.BAD_REQUEST,
                 exception.getMessage()
         );
-        problem.setTitle("Invalid book data");
+        problem.setTitle("Invalid request data");
 
         return problem;
     }
@@ -55,9 +66,9 @@ public class ApiExceptionHandler {
     public ProblemDetail handleDataIntegrityViolationException(DataIntegrityViolationException exception){
         ProblemDetail problem = ProblemDetail.forStatusAndDetail(
                 HttpStatus.CONFLICT,
-                "ISBN already exists"
+                "Request conflicts with existing data"
         );
-        problem.setTitle("Duplicate ISBN");
+        problem.setTitle("Data integrity conflict");
         return problem;
     }
 }
