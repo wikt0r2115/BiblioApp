@@ -1,17 +1,18 @@
 package com.wikt0r2115.library.domain;
 
-import com.jayway.jsonpath.internal.function.sequence.Last;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
 import java.util.List;
 
+import static com.wikt0r2115.library.TestData.MEMBER_EMAIL;
+import static com.wikt0r2115.library.TestData.MEMBER_FIRST_NAME;
+import static com.wikt0r2115.library.TestData.MEMBER_LAST_NAME;
+import static com.wikt0r2115.library.TestData.padded;
+import static com.wikt0r2115.library.TestData.sampleMember;
 import static org.junit.jupiter.api.Assertions.*;
 
 public class MemberTest {
-    private final String FIRST_NAME = "Jack";
-    private final String LAST_NAME = "Sparrow";
-    private final String VALID_EMAIL = "test@test.gmail";
     private final List<String> INVALID_EMAIL = new ArrayList<>(List.of(
             "test",
             "test@",
@@ -24,62 +25,52 @@ public class MemberTest {
         Member member = sampleMember();
         assertAll(
                 () -> assertNull(member.getMemberId()),
-                () -> assertEquals(FIRST_NAME, member.getFirstName()),
-                () -> assertEquals(LAST_NAME, member.getLastName()),
-                () -> assertEquals(VALID_EMAIL, member.getEmail())
+                () -> assertEquals(MEMBER_FIRST_NAME, member.getFirstName()),
+                () -> assertEquals(MEMBER_LAST_NAME, member.getLastName()),
+                () -> assertEquals(MEMBER_EMAIL, member.getEmail())
         );
     }
 
     @Test
     void create_trims_normalize_data(){
         Member member = new Member(
-                addSpacesForString(FIRST_NAME),
-                addSpacesForString(LAST_NAME),
-                addSpacesForString(VALID_EMAIL)
+                padded(MEMBER_FIRST_NAME),
+                padded(MEMBER_LAST_NAME),
+                padded(MEMBER_EMAIL)
         );
 
-        assertEquals(FIRST_NAME, member.getFirstName());
-        assertEquals(LAST_NAME, member.getLastName());
-        assertEquals(VALID_EMAIL, member.getEmail());
+        assertEquals(MEMBER_FIRST_NAME, member.getFirstName());
+        assertEquals(MEMBER_LAST_NAME, member.getLastName());
+        assertEquals(MEMBER_EMAIL, member.getEmail());
     }
 
     @Test
     void create_whenFirstNameIsNullOrBlank_throwsIllegalArgumentException(){
         assertThrows(IllegalArgumentException.class,
-                () -> new Member(null,LAST_NAME,VALID_EMAIL));
+                () -> new Member(null, MEMBER_LAST_NAME, MEMBER_EMAIL));
         assertThrows(IllegalArgumentException.class,
-                () -> new Member("", LAST_NAME, VALID_EMAIL));
+                () -> new Member("", MEMBER_LAST_NAME, MEMBER_EMAIL));
     }
 
     @Test
     void create_whenLastNameIsNullOrBlank_throwsIllegalArgumentException(){
         assertThrows(IllegalArgumentException.class,
-                () -> new Member(FIRST_NAME, null, VALID_EMAIL));
+                () -> new Member(MEMBER_FIRST_NAME, null, MEMBER_EMAIL));
         assertThrows(IllegalArgumentException.class,
-                () -> new Member(FIRST_NAME,"", VALID_EMAIL));
+                () -> new Member(MEMBER_FIRST_NAME, "", MEMBER_EMAIL));
     }
 
     @Test
     void create_whenEmailIsNullBlankOrInvalid_throwsIllegalArgumentException(){
         assertThrows(IllegalArgumentException.class,
-                () -> new Member(FIRST_NAME,LAST_NAME, null));
+                () -> new Member(MEMBER_FIRST_NAME, MEMBER_LAST_NAME, null));
         assertThrows(IllegalArgumentException.class,
-                () -> new Member(FIRST_NAME,LAST_NAME,""));
+                () -> new Member(MEMBER_FIRST_NAME, MEMBER_LAST_NAME, ""));
         assertThrows(IllegalArgumentException.class,
-                () -> new Member(FIRST_NAME, LAST_NAME, INVALID_EMAIL.get(0)));
+                () -> new Member(MEMBER_FIRST_NAME, MEMBER_LAST_NAME, INVALID_EMAIL.get(0)));
         assertThrows(IllegalArgumentException.class,
-                () -> new Member(FIRST_NAME, LAST_NAME, INVALID_EMAIL.get(1)));
+                () -> new Member(MEMBER_FIRST_NAME, MEMBER_LAST_NAME, INVALID_EMAIL.get(1)));
         assertThrows(IllegalArgumentException.class,
-                () -> new Member(FIRST_NAME, LAST_NAME, INVALID_EMAIL.get(2)));
-    }
-
-
-    private String addSpacesForString(String string){
-        return "     " + string + "        ";
-    }
-
-
-    private Member sampleMember(){
-        return new Member(FIRST_NAME,LAST_NAME,VALID_EMAIL);
+                () -> new Member(MEMBER_FIRST_NAME, MEMBER_LAST_NAME, INVALID_EMAIL.get(2)));
     }
 }

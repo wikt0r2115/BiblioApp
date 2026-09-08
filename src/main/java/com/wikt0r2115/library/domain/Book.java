@@ -16,7 +16,6 @@ public class Book {
 
     @NotBlank(message = "isbn must not be blank")
     @Column(nullable = false, unique = true)
-
     //@ISBN
     private String isbn;
 
@@ -165,7 +164,6 @@ public class Book {
         }
         this.available = true;
     }
-
 
     public Long getBookId() {return bookId;}
     public String getTitle(){return title;}

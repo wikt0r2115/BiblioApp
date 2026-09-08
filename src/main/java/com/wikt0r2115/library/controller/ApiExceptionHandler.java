@@ -1,7 +1,6 @@
 package com.wikt0r2115.library.controller;
 
-import com.wikt0r2115.library.service.BookNotFoundException;
-import com.wikt0r2115.library.service.MemberNotFoundException;
+import com.wikt0r2115.library.service.*;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
@@ -29,6 +28,16 @@ public class ApiExceptionHandler {
                 "Member does not exist"
         );
         problem.setTitle("Member not found");
+        return problem;
+    }
+
+    @ExceptionHandler(LoanNotFoundException.class)
+    public ProblemDetail handleLoanNotFound(LoanNotFoundException exception) {
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(
+                HttpStatus.NOT_FOUND,
+                "Loan does not exist"
+        );
+        problem.setTitle("Loan not found");
         return problem;
     }
 
@@ -69,6 +78,16 @@ public class ApiExceptionHandler {
                 "Request conflicts with existing data"
         );
         problem.setTitle("Data integrity conflict");
+        return problem;
+    }
+
+    @ExceptionHandler(BookAlreadyLoaned.class)
+    public ProblemDetail handleBookAlreadyLoaned(BookAlreadyLoaned exception){
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(
+                HttpStatus.CONFLICT,
+                exception.getMessage()
+        );
+        problem.setTitle("Book is loaned");
         return problem;
     }
 }

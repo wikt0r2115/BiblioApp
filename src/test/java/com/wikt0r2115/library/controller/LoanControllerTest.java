@@ -1,0 +1,199 @@
+package com.wikt0r2115.library.controller;
+
+import com.wikt0r2115.library.domain.Loan;
+import com.wikt0r2115.library.service.*;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.http.MediaType;
+import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.setup.MockMvcBuilders;
+import org.springframework.validation.beanvalidation.LocalValidatorFactoryBean;
+
+import java.util.List;
+
+import static com.wikt0r2115.library.TestData.sampleActiveLoanWithIds;
+import static com.wikt0r2115.library.TestData.sampleReturnedLoanWithIds;
+import static org.hamcrest.Matchers.hasSize;
+import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
+@ExtendWith(MockitoExtension.class)
+class LoanControllerTest {
+    @Mock
+    private LoanService loanService;
+
+    private MockMvc mockMvc;
+
+    @BeforeEach
+    void setUp() {
+        LocalValidatorFactoryBean validator = new LocalValidatorFactoryBean();
+        validator.afterPropertiesSet();
+
+        mockMvc = MockMvcBuilders.standaloneSetup(new LoanController(loanService))
+                .setControllerAdvice(new ApiExceptionHandler())
+                .setValidator(validator)
+                .build();
+    }
+
+    @Test
+    void borrowBook_whenRequestIsValid_returnsCreatedLoan() throws Exception {
+        when(loanService.borrowBook(1L, 2L))
+                .thenReturn(activeLoan());
+
+        mockMvc.perform(post("/loans")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "bookId": 1,
+                                  "memberId": 2
+                                }
+                                """))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.loanId").value(10))
+                .andExpect(jsonPath("$.bookId").value(1))
+                .andExpect(jsonPath("$.bookTitle").value("Atomic Habits"))
+                .andExpect(jsonPath("$.memberFirstName").value("Jan"))
+                .andExpect(jsonPath("$.memberLastName").value("Kowalski"))
+                .andExpect(jsonPath("$.active").value(true));
+    }
+
+    @Test
+    void borrowBook_whenRequestIsInvalid_returnsBadRequest() throws Exception {
+        mockMvc.perform(post("/loans")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                }
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.title").value("Validation failed"))
+                .andExpect(jsonPath("$.detail").value("One or more request fields are invalid"));
+    }
+
+    @Test
+    void borrowBook_whenBookDoesNotExist_returnsNotFound() throws Exception {
+        when(loanService.borrowBook(1L, 2L))
+                .thenThrow(new BookNotFoundException(1L));
+
+        mockMvc.perform(post("/loans")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "bookId": 1,
+                                  "memberId": 2
+                                }
+                                """))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.title").value("Book not found"))
+                .andExpect(jsonPath("$.detail").value("Book does not exist"));
+    }
+
+
+    @Test
+    void findLoanById_whenLoanExists_returnsLoan() throws Exception {
+        when(loanService.findById(10L))
+                .thenReturn(activeLoan());
+
+        mockMvc.perform(get("/loans/10"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.loanId").value(10))
+                .andExpect(jsonPath("$.active").value(true));
+    }
+
+    @Test
+    void returnBook_whenLoanExists_returnsReturnedLoan() throws Exception {
+        when(loanService.returnBook(10L))
+                .thenReturn(returnedLoan());
+
+        mockMvc.perform(post("/loans/10/return"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.loanId").value(10))
+                .andExpect(jsonPath("$.active").value(false));
+    }
+
+    @Test
+    void returnBook_whenLoanDoesNotExist_returnsNotFound() throws Exception {
+        when(loanService.returnBook(10L))
+                .thenThrow(new LoanNotFoundException(10L));
+
+        mockMvc.perform(post("/loans/10/return"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.title").value("Loan not found"))
+                .andExpect(jsonPath("$.detail").value("Loan does not exist"));
+    }
+
+    @Test
+    void getActiveLoans_returnsLoans() throws Exception {
+        when(loanService.findActiveLoansByMember(2L))
+                .thenReturn(List.of(activeLoan()));
+
+        mockMvc.perform(get("/members/2/loans/active"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$", hasSize(1)))
+                .andExpect(jsonPath("$[0].loanId").value(10))
+                .andExpect(jsonPath("$[0].active").value(true));
+    }
+
+    @Test
+    void getHistoryLoans_returnsLoans() throws Exception {
+        when(loanService.findReturnedLoansByMember(2L))
+                .thenReturn(List.of(returnedLoan()));
+
+        mockMvc.perform(get("/members/2/loans/history"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$", hasSize(1)))
+                .andExpect(jsonPath("$[0].loanId").value(10))
+                .andExpect(jsonPath("$[0].active").value(false));
+    }
+
+    @Test
+    void borrowBook_whenBookAlreadyLoaned_returnsConflict() throws Exception{
+        when(loanService.borrowBook(1L, 2L))
+                .thenThrow(new BookAlreadyLoaned(1L));
+
+        mockMvc.perform(post("/loans")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                               {
+                                "bookId": 1,
+                                "memberId": 2
+                               }
+                               """))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.title").value("Book is loaned"))
+                .andExpect(jsonPath("$.detail").value("Book with id 1 is already loaned"));
+    }
+
+    @Test
+    void borrowBook_whenMemberDoesNotExists_returnNotFound() throws Exception{
+        when(loanService.borrowBook(1L, 3L))
+                .thenThrow(new MemberNotFoundException(3L));
+
+        mockMvc.perform(post("/loans")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                        {
+                            "bookId": 1,
+                            "memberId": 3
+                        }
+                        """))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.title").value("Member not found"))
+                .andExpect(jsonPath("$.detail").value("Member does not exist"));
+    }
+
+
+    private Loan activeLoan() {
+        return sampleActiveLoanWithIds();
+    }
+
+    private Loan returnedLoan() {
+        return sampleReturnedLoanWithIds();
+    }
+}

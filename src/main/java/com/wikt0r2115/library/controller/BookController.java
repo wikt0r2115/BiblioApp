@@ -64,13 +64,4 @@ public class BookController {
         return BookResponse.from(bookService.changeIsbn(id,request.isbn()));
     }
 
-    @PutMapping("/{id}/borrow")
-    public BookResponse markBorrowed(@PathVariable Long id){
-        return BookResponse.from(bookService.markBorrowed(id));
-    }
-
-    @PutMapping("/{id}/return")
-    public BookResponse markReturned(@PathVariable Long id){
-        return BookResponse.from(bookService.markReturned(id));
-    }
 }

@@ -61,18 +61,6 @@ public class BookService {
         return bookRepository.save(book);
     }
 
-    public Book markBorrowed(Long id){
-        Book book = findById(id);
-        book.markBorrowed();
-        return bookRepository.save(book);
-    }
-
-    public Book markReturned(Long id){
-        Book book = findById(id);
-        book.markReturned();
-        return bookRepository.save(book);
-    }
-
     public void deleteBook(Long id){
         Book book = findById(id);
         bookRepository.delete(book);

@@ -5,29 +5,21 @@ import org.junit.jupiter.api.Test;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import static com.wikt0r2115.library.TestData.*;
 import static org.junit.jupiter.api.Assertions.*;
 
 public class BookTest {
-    private static final String VALID_ISBN13 = "978-1-60309-502-0";
-    private static final String VALID_ISBN10 = "152935112x";
-    private static final String NORMALIZED_VALID_ISBN13 = "9781603095020";
-    private static final String NORMALIZED_VALID_ISBN10 = "152935112X";
-    private static final String TITLE = "Atomic Habits";
-    private static final int PUBLICATION_YEAR = 2005;
-    private static final String AUTHOR_FIRST_NAME = "James";
-    private static final String AUTHOR_LAST_NAME = "Clear";
-
     @Test
     void create_validBook(){
         Book book = sampleBook();
         assertAll(
                 () -> assertNull(book.getBookId()),
                 () -> assertEquals(NORMALIZED_VALID_ISBN13, book.getIsbn()),
-                () -> assertEquals(TITLE, book.getTitle()),
+                () -> assertEquals(BOOK_TITLE, book.getTitle()),
                 () -> assertEquals(PUBLICATION_YEAR, book.getPublicationYear()),
                 () -> assertTrue(book.isAvailable()),
                 () -> assertAuthor(book.getAuthor(), AUTHOR_FIRST_NAME, AUTHOR_LAST_NAME),
-                () -> assertCategoryNames(book.getCategories(), "Psychology", "Science")
+                () -> assertCategoryNames(book.getCategories(), CATEGORY_ONE, CATEGORY_TWO)
         );
     }
 
@@ -35,42 +27,42 @@ public class BookTest {
     void create_trims_normalize_Data_ISBN13(){
         Book book = new Book(
                 VALID_ISBN13,
-                addSpacesForString(TITLE),
+                padded(BOOK_TITLE),
                 PUBLICATION_YEAR,
-                new Author(addSpacesForString(AUTHOR_FIRST_NAME), addSpacesForString(AUTHOR_LAST_NAME)),
+                new Author(padded(AUTHOR_FIRST_NAME), padded(AUTHOR_LAST_NAME)),
                 Set.of(
-                        new Category(addSpacesForString("Psychology")),
-                        new Category(addSpacesForString("Science"))
+                        new Category(padded(CATEGORY_ONE)),
+                        new Category(padded(CATEGORY_TWO))
                 ));
 
         assertEquals(NORMALIZED_VALID_ISBN13, book.getIsbn());
-        assertEquals(TITLE, book.getTitle());
+        assertEquals(BOOK_TITLE, book.getTitle());
         assertAuthor(book.getAuthor(), AUTHOR_FIRST_NAME, AUTHOR_LAST_NAME);
-        assertCategoryNames(book.getCategories(), "Psychology", "Science");
+        assertCategoryNames(book.getCategories(), CATEGORY_ONE, CATEGORY_TWO);
     }
 
     @Test
     void create_trims_normalize_Data_ISBN10(){
         Book book = new Book(
                 VALID_ISBN10,
-                addSpacesForString(TITLE),
+                padded(BOOK_TITLE),
                 PUBLICATION_YEAR,
-                new Author(addSpacesForString(AUTHOR_FIRST_NAME), addSpacesForString(AUTHOR_LAST_NAME)),
+                new Author(padded(AUTHOR_FIRST_NAME), padded(AUTHOR_LAST_NAME)),
                 Set.of(
-                        new Category(addSpacesForString("Psychology")),
-                        new Category(addSpacesForString("Science"))
+                        new Category(padded(CATEGORY_ONE)),
+                        new Category(padded(CATEGORY_TWO))
                 ));
 
         assertEquals(NORMALIZED_VALID_ISBN10, book.getIsbn());
-        assertEquals(TITLE, book.getTitle());
+        assertEquals(BOOK_TITLE, book.getTitle());
         assertAuthor(book.getAuthor(), AUTHOR_FIRST_NAME, AUTHOR_LAST_NAME);
-        assertCategoryNames(book.getCategories(), "Psychology", "Science");
+        assertCategoryNames(book.getCategories(), CATEGORY_ONE, CATEGORY_TWO);
     }
 
     @Test
     void create_whenISBNisNull_throwsIllegalArgumentException(){
         assertThrows(IllegalArgumentException.class,
-                () -> new Book(null, TITLE, PUBLICATION_YEAR, sampleAuthor(), sampleCategories()));
+                () -> new Book(null, BOOK_TITLE, PUBLICATION_YEAR, sampleAuthor(), sampleCategories()));
     }
 
     @Test
@@ -84,39 +76,39 @@ public class BookTest {
     @Test
     void create_whenPublicationYearIsLowerThan1450ORHigherThanCurrentYear_throwsIllegalArgumentException(){
         assertThrows(IllegalArgumentException.class,
-                () -> new Book(NORMALIZED_VALID_ISBN13, TITLE, 1300, sampleAuthor(), sampleCategories()));
+                () -> new Book(NORMALIZED_VALID_ISBN13, BOOK_TITLE, 1300, sampleAuthor(), sampleCategories()));
         assertThrows(IllegalArgumentException.class,
-                () -> new Book(NORMALIZED_VALID_ISBN13, TITLE, 2300, sampleAuthor(), sampleCategories()));
+                () -> new Book(NORMALIZED_VALID_ISBN13, BOOK_TITLE, 2300, sampleAuthor(), sampleCategories()));
     }
 
     @Test
     void create_whenAuthorIsNullOrBlank_throwsIllegalArgumentException(){
         assertThrows(IllegalArgumentException.class,
-                () -> new Book(NORMALIZED_VALID_ISBN13, TITLE, PUBLICATION_YEAR, null, sampleCategories()));
+                () -> new Book(NORMALIZED_VALID_ISBN13, BOOK_TITLE, PUBLICATION_YEAR, null, sampleCategories()));
         assertThrows(IllegalArgumentException.class,
-                () -> new Book(NORMALIZED_VALID_ISBN13, TITLE, PUBLICATION_YEAR, new Author("", ""), sampleCategories()));
+                () -> new Book(NORMALIZED_VALID_ISBN13, BOOK_TITLE, PUBLICATION_YEAR, new Author("", ""), sampleCategories()));
     }
 
     @Test
     void create_whenCategoryIsNullOrEmptyOrContainsNull_throwsIllegalArgumentException(){
         assertThrows(IllegalArgumentException.class,
-                () -> new Book(NORMALIZED_VALID_ISBN13, TITLE, PUBLICATION_YEAR, sampleAuthor(), null));
+                () -> new Book(NORMALIZED_VALID_ISBN13, BOOK_TITLE, PUBLICATION_YEAR, sampleAuthor(), null));
         assertThrows(IllegalArgumentException.class,
-                () -> new Book(NORMALIZED_VALID_ISBN13, TITLE, PUBLICATION_YEAR, sampleAuthor(), Set.of()));
+                () -> new Book(NORMALIZED_VALID_ISBN13, BOOK_TITLE, PUBLICATION_YEAR, sampleAuthor(), Set.of()));
         assertThrows(IllegalArgumentException.class,
-                () -> new Book(NORMALIZED_VALID_ISBN13, TITLE, PUBLICATION_YEAR, sampleAuthor(), setWithNullCategory()));
+                () -> new Book(NORMALIZED_VALID_ISBN13, BOOK_TITLE, PUBLICATION_YEAR, sampleAuthor(), categoriesWithNull()));
     }
 
     @Test
     void create_whenInvalidISBN_throwsIllegalArgumentException(){
         assertThrows(IllegalArgumentException.class,
-                () -> new Book("1529351125", TITLE, PUBLICATION_YEAR, sampleAuthor(), sampleCategories()));
+                () -> new Book("1529351125", BOOK_TITLE, PUBLICATION_YEAR, sampleAuthor(), sampleCategories()));
         assertThrows(IllegalArgumentException.class,
-                () -> new Book("3213213213213", TITLE, PUBLICATION_YEAR, sampleAuthor(), sampleCategories()));
+                () -> new Book("3213213213213", BOOK_TITLE, PUBLICATION_YEAR, sampleAuthor(), sampleCategories()));
     }
 
     @Test
-    void markBorrowed_ChangesAvailabilityToFalse(){
+    void markBorrowed_changesAvailabilityToFalse(){
         Book book = sampleBook();
         book.markBorrowed();
         assertFalse(book.isAvailable());
@@ -126,12 +118,11 @@ public class BookTest {
     void markBorrowed_whenBookIsNotAvailable_throwsIllegalStateException(){
         Book book = sampleBook();
         book.markBorrowed();
-        assertThrows(IllegalStateException.class,
-                book::markBorrowed);
+        assertThrows(IllegalStateException.class, book::markBorrowed);
     }
 
     @Test
-    void markReturned_ChangesAvailabilityToTrue(){
+    void markReturned_changesAvailabilityToTrue(){
         Book book = sampleBook();
         book.markBorrowed();
         book.markReturned();
@@ -141,8 +132,7 @@ public class BookTest {
     @Test
     void markReturned_whenBookIsAvailable_throwsIllegalStateException(){
         Book book = sampleBook();
-        assertThrows(IllegalStateException.class,
-                book::markReturned);
+        assertThrows(IllegalStateException.class, book::markReturned);
     }
 
     @Test
@@ -171,19 +161,19 @@ public class BookTest {
         assertThrows(IllegalArgumentException.class,
                 () -> book.updateDetails(null, PUBLICATION_YEAR, sampleAuthor(), sampleCategories()));
         assertThrows(IllegalArgumentException.class,
-                () -> book.updateDetails(TITLE, 1300, sampleAuthor(), sampleCategories()));
+                () -> book.updateDetails(BOOK_TITLE, 1300, sampleAuthor(), sampleCategories()));
         assertThrows(IllegalArgumentException.class,
-                () -> book.updateDetails(TITLE, 2060, sampleAuthor(), sampleCategories()));
+                () -> book.updateDetails(BOOK_TITLE, 2060, sampleAuthor(), sampleCategories()));
         assertThrows(IllegalArgumentException.class,
-                () -> book.updateDetails(TITLE, PUBLICATION_YEAR, null, sampleCategories()));
+                () -> book.updateDetails(BOOK_TITLE, PUBLICATION_YEAR, null, sampleCategories()));
         assertThrows(IllegalArgumentException.class,
-                () -> book.updateDetails(TITLE, PUBLICATION_YEAR, new Author("", ""), sampleCategories()));
+                () -> book.updateDetails(BOOK_TITLE, PUBLICATION_YEAR, new Author("", ""), sampleCategories()));
         assertThrows(IllegalArgumentException.class,
-                () -> book.updateDetails(TITLE, PUBLICATION_YEAR, sampleAuthor(), Set.of()));
+                () -> book.updateDetails(BOOK_TITLE, PUBLICATION_YEAR, sampleAuthor(), Set.of()));
         assertThrows(IllegalArgumentException.class,
-                () -> book.updateDetails(TITLE, PUBLICATION_YEAR, sampleAuthor(), null));
+                () -> book.updateDetails(BOOK_TITLE, PUBLICATION_YEAR, sampleAuthor(), null));
         assertThrows(IllegalArgumentException.class,
-                () -> book.updateDetails(TITLE, PUBLICATION_YEAR, sampleAuthor(), setWithNullCategory()));
+                () -> book.updateDetails(BOOK_TITLE, PUBLICATION_YEAR, sampleAuthor(), categoriesWithNull()));
     }
 
     @Test
@@ -239,34 +229,6 @@ public class BookTest {
                 () -> book.changeIsbn("1G2935112A"));
         assertThrows(IllegalArgumentException.class,
                 () -> book.changeIsbn("152935113X"));
-    }
-
-    private Book sampleBook(){
-        return new Book(
-                VALID_ISBN13,
-                TITLE,
-                PUBLICATION_YEAR,
-                sampleAuthor(),
-                sampleCategories());
-    }
-
-    private Author sampleAuthor(){
-        return new Author(AUTHOR_FIRST_NAME, AUTHOR_LAST_NAME);
-    }
-
-    private Set<Category> sampleCategories(){
-        return Set.of(new Category("Psychology"), new Category("Science"));
-    }
-
-    private Set<Category> setWithNullCategory(){
-        Set<Category> categories = new java.util.HashSet<>();
-        categories.add(new Category("Psychology"));
-        categories.add(null);
-        return categories;
-    }
-
-    private String addSpacesForString(String string){
-        return "     " + string + "        ";
     }
 
     private void assertAuthor(Author author, String firstName, String lastName){

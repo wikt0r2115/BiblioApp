@@ -194,39 +194,6 @@ class BookControllerTest {
     }
 
     @Test
-    void markBorrowed_whenBookIsAvailable_returnsBorrowedBook() throws Exception {
-        Book book = sampleBook();
-        book.markBorrowed();
-        when(bookService.markBorrowed(1L))
-                .thenReturn(book);
-
-        mockMvc.perform(put("/book/1/borrow"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.available").value(false));
-    }
-
-    @Test
-    void markBorrowed_whenBookIsNotAvailable_returnsConflict() throws Exception {
-        when(bookService.markBorrowed(1L))
-                .thenThrow(new IllegalStateException("Book is not available"));
-
-        mockMvc.perform(put("/book/1/borrow"))
-                .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.title").value("Book state conflict"))
-                .andExpect(jsonPath("$.detail").value("Book is not available"));
-    }
-
-    @Test
-    void markReturned_whenBookIsBorrowed_returnsAvailableBook() throws Exception {
-        when(bookService.markReturned(1L))
-                .thenReturn(sampleBook());
-
-        mockMvc.perform(put("/book/1/return"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.available").value(true));
-    }
-
-    @Test
     void deleteBook_whenBookExists_returnsNoContent() throws Exception {
         mockMvc.perform(delete("/book/1"))
                 .andExpect(status().isNoContent());

@@ -168,32 +168,6 @@ public class BookServiceTest {
     }
 
     @Test
-    public void markBorrowed_whenBookExists_marksAsBorrowedAndSavesBook(){
-        when(bookRepository.findById(BOOK_ID))
-                .thenReturn(Optional.of(sampleBook()));
-        when(bookRepository.save(any(Book.class)))
-                .thenAnswer(invocation -> invocation.getArgument(0));
-        Book book = bookService.markBorrowed(BOOK_ID);
-        assertFalse(book.isAvailable());
-        verify(bookRepository).save(book);
-    }
-
-    @Test
-    public void markReturned_whenBookExists_marksAsReturnedAndSavesBook(){
-        Book borrowedBook = sampleBook();
-        borrowedBook.markBorrowed();
-        when(bookRepository.findById(BOOK_ID))
-                .thenReturn(Optional.of(borrowedBook));
-        when(bookRepository.save(any(Book.class)))
-                .thenAnswer(invocation -> invocation.getArgument(0));
-
-        Book book = bookService.markReturned(BOOK_ID);
-
-        assertTrue(book.isAvailable());
-        verify(bookRepository).save(book);
-    }
-
-    @Test
     public void deleteBook_whenBookExists_deletesBook(){
         Book existingBook = sampleBook();
         when(bookRepository.findById(BOOK_ID))
