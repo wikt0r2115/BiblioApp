@@ -17,7 +17,9 @@ Profil `h2` jest domyślny. Baza działa w pamięci i znika po zatrzymaniu aplik
 Wymagany jest Docker z wtyczką Compose. Jeśli nie masz jeszcze pliku `.env`, skopiuj `.env.example` do `.env` i ustaw własne hasło. Plik `.env` jest ignorowany przez Git.
 
 ```bash
-cp -n .env.example .env
+if [ ! -f .env ]; then
+  cp .env.example .env
+fi
 sudo docker compose up -d --wait
 set -a
 . ./.env
@@ -25,7 +27,7 @@ set +a
 SPRING_PROFILES_ACTIVE=postgres ./mvnw spring-boot:run
 ```
 
-Opcja `-n` chroni istniejący plik `.env` przed nadpisaniem. `sudo` jest potrzebne, gdy użytkownik nie ma dostępu do gniazda Docker; jeśli masz taki dostęp, uruchom `docker compose` bez `sudo`.
+Warunek na początku chroni istniejący plik `.env` przed nadpisaniem. `sudo` jest potrzebne, gdy użytkownik nie ma dostępu do gniazda Docker; jeśli masz taki dostęp, uruchom `docker compose` bez `sudo`.
 
 PostgreSQL nasłuchuje lokalnie na porcie 5432. Flyway automatycznie uruchamia migrację schematu, a Hibernate sprawdza jego zgodność z encjami. Dane są przechowywane w wolumenie `postgres_data`. `sudo docker compose down` zatrzymuje środowisko i zachowuje dane; dodanie `--volumes` usuwa również bazę.
 
