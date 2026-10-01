@@ -1,5 +1,6 @@
 package com.wikt0r2115.library.service;
 
+import com.wikt0r2115.library.controller.dto.AuthorResponse;
 import com.wikt0r2115.library.domain.Author;
 import com.wikt0r2115.library.infrastructure.AuthorRepository;
 import org.springframework.stereotype.Service;
@@ -12,12 +13,14 @@ public class AuthorService {
 
     public AuthorService(AuthorRepository authorRepository){ this.authorRepository = authorRepository; }
 
-    public Author createAuthor(String firstName, String lastName){
+    public AuthorResponse createAuthor(String firstName, String lastName){
         Author author = new Author(firstName, lastName);
-        return authorRepository.save(author);
+        return AuthorResponse.from(authorRepository.save(author));
     }
 
-    public List<Author> findAll(){
-        return authorRepository.findAll();
+    public List<AuthorResponse> findAll(){
+        return authorRepository.findAll().stream()
+                .map(AuthorResponse::from)
+                .toList();
     }
 }

@@ -2,6 +2,7 @@ package com.wikt0r2115.library.domain;
 
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
 
 @Entity
 public class Author {
@@ -27,6 +28,8 @@ public class Author {
     private String validateString(String string){
         if(string == null || string.isBlank())
             throw new IllegalArgumentException("first or last name must not be blank");
+        if(string.strip().length() > 255)
+            throw new IllegalArgumentException("First or last name must not exceed 255 characters");
         return string.strip();
     }
 

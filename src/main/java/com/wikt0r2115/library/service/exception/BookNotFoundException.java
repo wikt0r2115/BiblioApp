@@ -1,4 +1,4 @@
-package com.wikt0r2115.library.service;
+package com.wikt0r2115.library.service.exception;
 
 public class BookNotFoundException extends RuntimeException {
     public BookNotFoundException(Long id) {

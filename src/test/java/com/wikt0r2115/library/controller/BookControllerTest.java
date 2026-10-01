@@ -1,17 +1,19 @@
 package com.wikt0r2115.library.controller;
 
+import com.wikt0r2115.library.controller.dto.BookResponse;
+import com.wikt0r2115.library.controller.dto.PageResponse;
 import com.wikt0r2115.library.domain.Author;
 import com.wikt0r2115.library.domain.Book;
 import com.wikt0r2115.library.domain.Category;
-import com.wikt0r2115.library.service.BookNotFoundException;
+import com.wikt0r2115.library.service.exception.BookNotFoundException;
+import com.wikt0r2115.library.service.exception.AuthorNotFoundException;
+import com.wikt0r2115.library.service.exception.CategoryNotFoundException;
 import com.wikt0r2115.library.service.BookService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.data.domain.PageImpl;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableHandlerMethodArgumentResolver;
 import org.springframework.http.MediaType;
@@ -26,7 +28,11 @@ import java.util.Set;
 import static org.hamcrest.Matchers.hasSize;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -56,8 +62,8 @@ class BookControllerTest {
 
     @Test
     void findBookById_whenBookExists_returnsBook() throws Exception {
-        when(bookService.findById(1L))
-                .thenReturn(sampleBook());
+        when(bookService.findByIdWhereArchivedFalse(1L))
+                .thenReturn(BookResponse.from(sampleBook()));
 
         mockMvc.perform(get("/book/1"))
                 .andExpect(status().isOk())
@@ -76,7 +82,7 @@ class BookControllerTest {
 
     @Test
     void findBookById_whenBookDoesntExist_returnsNotFound() throws Exception {
-        when(bookService.findById(99L))
+        when(bookService.findByIdWhereArchivedFalse(99L))
                 .thenThrow(new BookNotFoundException(99L));
 
         mockMvc.perform(get("/book/99"))
@@ -93,7 +99,7 @@ class BookControllerTest {
                 eq(2024),
                 eq(2L),
                 eq(Set.of(3L))))
-                .thenReturn(sampleBook());
+                .thenReturn(BookResponse.from(sampleBook()));
 
         mockMvc.perform(post("/book")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -132,7 +138,7 @@ class BookControllerTest {
     @Test
     void findBooks_withFilters_returnsPage() throws Exception {
         when(bookService.findAll(eq(2L), eq("Atomic"), eq(true), any(Pageable.class)))
-                .thenReturn(new PageImpl<>(List.of(sampleBook()), PageRequest.of(0, 10), 1));
+                .thenReturn(new PageResponse<>(List.of(BookResponse.from(sampleBook())), 0, 10, 1, 1));
 
         mockMvc.perform(get("/book")
                         .param("authorId", "2")
@@ -148,6 +154,9 @@ class BookControllerTest {
                 .andExpect(jsonPath("$.size").value(10))
                 .andExpect(jsonPath("$.totalElements").value(1))
                 .andExpect(jsonPath("$.totalPages").value(1));
+
+        verify(bookService).findAll(eq(2L), eq("Atomic"), eq(true),
+                argThat(pageable -> pageable.getPageNumber() == 0 && pageable.getPageSize() == 10));
     }
 
     @Test
@@ -158,7 +167,7 @@ class BookControllerTest {
                 eq(2025),
                 eq(2L),
                 eq(Set.of(3L))))
-                .thenReturn(sampleBook("Clean Code", 2025));
+                .thenReturn(BookResponse.from(sampleBook("Clean Code", 2025)));
 
         mockMvc.perform(put("/book/1")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -180,7 +189,7 @@ class BookControllerTest {
         Book book = sampleBook();
         book.changeIsbn("9780136091813");
         when(bookService.changeIsbn(1L, "9780136091813"))
-                .thenReturn(book);
+                .thenReturn(BookResponse.from(book));
 
         mockMvc.perform(put("/book/1/isbn")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -199,6 +208,116 @@ class BookControllerTest {
                 .andExpect(status().isNoContent());
 
         verify(bookService).deleteBook(1L);
+    }
+
+    @Test
+    void createBook_whenAuthorDoesNotExist_returnsNotFound() throws Exception {
+        when(bookService.createBook("9781603095020", "Atomic Habits", 2024, 2L, Set.of(3L)))
+                .thenThrow(new AuthorNotFoundException("Author with id 2 does not exist"));
+
+        mockMvc.perform(post("/book")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"isbn":"9781603095020","title":"Atomic Habits","publicationYear":2024,
+                                 "authorId":2,"categoryIds":[3]}
+                                """))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.title").value("Author not found"));
+    }
+
+    @Test
+    void createBook_whenCategoryDoesNotExist_returnsNotFound() throws Exception {
+        when(bookService.createBook("9781603095020", "Atomic Habits", 2024, 2L, Set.of(3L)))
+                .thenThrow(new CategoryNotFoundException("One or more categories do not exist"));
+
+        mockMvc.perform(post("/book")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"isbn":"9781603095020","title":"Atomic Habits","publicationYear":2024,
+                                 "authorId":2,"categoryIds":[3]}
+                                """))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.title").value("Category not found"));
+    }
+
+    @Test
+    void updateDetails_whenRequestIsInvalid_returnsBadRequest() throws Exception {
+        mockMvc.perform(put("/book/1")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"title":"","publicationYear":1200,"categoryIds":[]}
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.title").value("Validation failed"));
+
+        verifyNoInteractions(bookService);
+    }
+
+    @Test
+    void updateDetails_whenBookDoesNotExist_returnsNotFound() throws Exception {
+        when(bookService.updateDetails(1L, "Clean Code", 2025, 2L, Set.of(3L)))
+                .thenThrow(new BookNotFoundException(1L));
+
+        mockMvc.perform(put("/book/1")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"title":"Clean Code","publicationYear":2025,"authorId":2,"categoryIds":[3]}
+                                """))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.title").value("Book not found"));
+    }
+
+    @Test
+    void changeIsbn_whenRequestIsInvalid_returnsBadRequest() throws Exception {
+        mockMvc.perform(put("/book/1/isbn")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"isbn\":\"\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.title").value("Validation failed"));
+
+        verifyNoInteractions(bookService);
+    }
+
+    @Test
+    void changeIsbn_whenBookDoesNotExist_returnsNotFound() throws Exception {
+        when(bookService.changeIsbn(1L, "9780136091813"))
+                .thenThrow(new BookNotFoundException(1L));
+
+        mockMvc.perform(put("/book/1/isbn")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"isbn\":\"9780136091813\"}"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.title").value("Book not found"));
+    }
+
+    @Test
+    void deleteBook_whenBookDoesNotExist_returnsNotFound() throws Exception {
+        doThrow(new BookNotFoundException(1L)).when(bookService).deleteBook(1L);
+
+        mockMvc.perform(delete("/book/1"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.title").value("Book not found"));
+    }
+
+    @Test
+    void deleteBook_whenBookIsLoaned_returnsConflict() throws Exception {
+        doThrow(new IllegalStateException("Book is loaned")).when(bookService).deleteBook(1L);
+
+        mockMvc.perform(delete("/book/1"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.title").value("Unable to proceed operation"))
+                .andExpect(jsonPath("$.detail").value("Book is loaned"));
+    }
+
+    @Test
+    void findBooks_whenSortFieldIsUnsupported_returnsBadRequest() throws Exception {
+        when(bookService.findAll(isNull(), isNull(), isNull(), any(Pageable.class)))
+                .thenThrow(new IllegalArgumentException("Unsupported sort field invalid"));
+
+        mockMvc.perform(get("/book").param("sort", "invalid,asc"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.title").value("Invalid request data"))
+                .andExpect(jsonPath("$.detail").value("Unsupported sort field invalid"));
     }
 
     private Book sampleBook() {

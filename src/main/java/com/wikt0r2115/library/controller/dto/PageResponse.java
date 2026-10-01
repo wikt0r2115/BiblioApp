@@ -1,4 +1,4 @@
-package com.wikt0r2115.library.controller;
+package com.wikt0r2115.library.controller.dto;
 
 import org.springframework.data.domain.Page;
 

@@ -1,6 +1,6 @@
 package com.wikt0r2115.library.controller;
 
-import com.wikt0r2115.library.domain.Category;
+import com.wikt0r2115.library.controller.dto.CategoryResponse;
 import com.wikt0r2115.library.service.CategoryService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -8,7 +8,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.MediaType;
-import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.validation.beanvalidation.LocalValidatorFactoryBean;
@@ -17,6 +16,7 @@ import java.util.List;
 
 import static org.hamcrest.Matchers.hasSize;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -44,7 +44,7 @@ class CategoryControllerTest {
     @Test
     void findCategories_returnsCategories() throws Exception {
         when(categoryService.findAll())
-                .thenReturn(List.of(category(1L, "Psychology")));
+                .thenReturn(List.of(new CategoryResponse(1L, "Psychology")));
 
         mockMvc.perform(get("/category"))
                 .andExpect(status().isOk())
@@ -56,7 +56,7 @@ class CategoryControllerTest {
     @Test
     void createCategory_whenRequestIsValid_returnsCreatedCategory() throws Exception {
         when(categoryService.createCategory("Psychology"))
-                .thenReturn(category(1L, "Psychology"));
+                .thenReturn(new CategoryResponse(1L, "Psychology"));
 
         mockMvc.perform(post("/category")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -83,11 +83,30 @@ class CategoryControllerTest {
                                 """))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.title").value("Validation failed"));
+
+        verifyNoInteractions(categoryService);
     }
 
-    private Category category(Long id, String name) {
-        Category category = new Category(name);
-        ReflectionTestUtils.setField(category, "categoryId", id);
-        return category;
+    @Test
+    void findCategories_whenNoCategoriesExist_returnsEmptyList() throws Exception {
+        when(categoryService.findAll()).thenReturn(List.of());
+
+        mockMvc.perform(get("/category"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$", hasSize(0)));
     }
+
+    @Test
+    void createCategory_whenServiceRejectsData_returnsBadRequest() throws Exception {
+        when(categoryService.createCategory("Psychology"))
+                .thenThrow(new IllegalArgumentException("Invalid category"));
+
+        mockMvc.perform(post("/category")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"name\":\"Psychology\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.title").value("Invalid request data"))
+                .andExpect(jsonPath("$.detail").value("Invalid category"));
+    }
+
 }

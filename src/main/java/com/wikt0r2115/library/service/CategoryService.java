@@ -1,5 +1,6 @@
 package com.wikt0r2115.library.service;
 
+import com.wikt0r2115.library.controller.dto.CategoryResponse;
 import com.wikt0r2115.library.domain.Category;
 import com.wikt0r2115.library.infrastructure.CategoryRepository;
 import org.springframework.stereotype.Service;
@@ -14,11 +15,13 @@ public class CategoryService {
         this.categoryRepository = categoryRepository;
     }
 
-    public Category createCategory(String name){
-        return categoryRepository.save(new Category(name));
+    public CategoryResponse createCategory(String name){
+        return CategoryResponse.from(categoryRepository.save(new Category(name)));
     }
 
-    public List<Category> findAll(){
-        return categoryRepository.findAll();
+    public List<CategoryResponse> findAll(){
+        return categoryRepository.findAll().stream()
+                .map(CategoryResponse::from)
+                .toList();
     }
 }

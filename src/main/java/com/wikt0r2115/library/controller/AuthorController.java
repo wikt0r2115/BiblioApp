@@ -1,5 +1,7 @@
 package com.wikt0r2115.library.controller;
 
+import com.wikt0r2115.library.controller.dto.AuthorResponse;
+import com.wikt0r2115.library.controller.dto.CreateAuthorRequest;
 import com.wikt0r2115.library.service.AuthorService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
@@ -16,17 +18,15 @@ public class AuthorController {
 
     @GetMapping
     public List<AuthorResponse> findAuthors(){
-        return authorService.findAll().stream()
-                .map(AuthorResponse::from)
-                .toList();
+        return authorService.findAll();
     }
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     public AuthorResponse createNewAuthor(@Valid @RequestBody CreateAuthorRequest request){
-        return AuthorResponse.from(authorService.createAuthor(
+        return authorService.createAuthor(
                 request.firstName(),
                 request.lastName()
-        ));
+        );
     }
 }

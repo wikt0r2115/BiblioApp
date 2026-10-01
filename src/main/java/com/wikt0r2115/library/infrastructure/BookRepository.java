@@ -12,6 +12,14 @@ import java.util.Optional;
 
 public interface BookRepository extends JpaRepository<Book, Long> {
 
+    @Query("""
+            select b from Book b
+                    where (b.bookId = :id)
+                        and (b.archived is false)
+        """)
+    @EntityGraph(attributePaths = {"author", "categories"})
+    Optional<Book> findByIdWhereArchivedFalse(Long id);
+
     @Override
     @EntityGraph(attributePaths = {"author", "categories"})
     Optional<Book> findById(Long id);
@@ -20,8 +28,9 @@ public interface BookRepository extends JpaRepository<Book, Long> {
     @Query("""
             select distinct b from Book b
             where (:authorId is null or b.author.authorId = :authorId)
-              and (:title is null or lower(b.title) like lower(concat('%', :title, '%')))
+              and (:title is null or lower(b.title) like lower(concat('%', cast(:title as String), '%')))
               and (:available is null or b.available = :available)
+              and (b.archived is false)
             """)
     Page<Book> findWithFilters(
             @Param("authorId") Long authorId,

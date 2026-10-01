@@ -1,11 +1,16 @@
 package com.wikt0r2115.library.service;
 
+import com.wikt0r2115.library.controller.dto.LoanResponse;
 import com.wikt0r2115.library.domain.Book;
 import com.wikt0r2115.library.domain.Loan;
 import com.wikt0r2115.library.domain.Member;
 import com.wikt0r2115.library.infrastructure.BookRepository;
 import com.wikt0r2115.library.infrastructure.LoanRepository;
 import com.wikt0r2115.library.infrastructure.MemberRepository;
+import com.wikt0r2115.library.service.exception.BookAlreadyLoanedException;
+import com.wikt0r2115.library.service.exception.BookNotFoundException;
+import com.wikt0r2115.library.service.exception.LoanNotFoundException;
+import com.wikt0r2115.library.service.exception.MemberNotFoundException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -50,18 +55,19 @@ class LoanServiceTest {
         Book book = sampleBook();
         Member member = sampleMember();
 
-        when(bookRepository.findById(1L)).thenReturn(Optional.of(book));
-        when(memberRepository.findById(2L)).thenReturn(Optional.of(member));
+        when(bookRepository.findByIdWhereArchivedFalse(1L)).thenReturn(Optional.of(book));
+        when(memberRepository.findByIdWhereArchivedFalse(2L)).thenReturn(Optional.of(member));
         when(loanRepository.findByBookAndReturnedAtIsNull(book)).thenReturn(Optional.empty());
         when(bookRepository.save(any(Book.class))).thenAnswer(invocation -> invocation.getArgument(0));
         when(loanRepository.save(any(Loan.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-        Loan loan = loanService.borrowBook(1L, 2L);
+        LoanResponse loan = loanService.borrowBook(1L, 2L);
 
-        assertSame(book, loan.getBook());
-        assertSame(member, loan.getMember());
+        assertEquals(book.getTitle(), loan.bookTitle());
+        assertEquals(member.getFirstName(), loan.memberFirstName());
         assertFalse(book.isAvailable());
-        assertNull(loan.getReturnedAt());
+        assertNull(loan.returnedAt());
+        assertTrue(loan.active());
         verify(bookRepository).save(book);
         verify(loanRepository).save(any(Loan.class));
     }
@@ -70,8 +76,8 @@ class LoanServiceTest {
     void borrowBook_whenBookIsAlreadyUnavailable_throwsIllegalStateException() {
         Book book = sampleBook();
         book.markBorrowed();
-        when(bookRepository.findById(1L)).thenReturn(Optional.of(book));
-        when(memberRepository.findById(2L)).thenReturn(Optional.of(sampleMember()));
+        when(bookRepository.findByIdWhereArchivedFalse(1L)).thenReturn(Optional.of(book));
+        when(memberRepository.findByIdWhereArchivedFalse(2L)).thenReturn(Optional.of(sampleMember()));
 
         assertThrows(IllegalStateException.class, () -> loanService.borrowBook(1L, 2L));
     }
@@ -82,12 +88,12 @@ class LoanServiceTest {
         Member member = sampleMember();
         Loan activeLoan = new Loan(book, member);
 
-        when(bookRepository.findById(1L)).thenReturn(Optional.of(book));
-        when(memberRepository.findById(2L)).thenReturn(Optional.of(member));
+        when(bookRepository.findByIdWhereArchivedFalse(1L)).thenReturn(Optional.of(book));
+        when(memberRepository.findByIdWhereArchivedFalse(2L)).thenReturn(Optional.of(member));
         when(loanRepository.findByBookAndReturnedAtIsNull(book)).thenReturn(Optional.of(activeLoan));
 
 
-        assertThrows(BookAlreadyLoaned.class, () -> loanService.borrowBook(1L, 2L));
+        assertThrows(BookAlreadyLoanedException.class, () -> loanService.borrowBook(1L, 2L));
     }
 
     @Test
@@ -95,9 +101,9 @@ class LoanServiceTest {
         Loan loan = new Loan(sampleBook(), sampleMember());
         when(loanRepository.findById(1L)).thenReturn(Optional.of(loan));
 
-        Loan result = loanService.findById(1L);
+        LoanResponse result = loanService.findById(1L);
 
-        assertSame(loan, result);
+        assertEquals(LoanResponse.from(loan), result);
     }
 
     @Test
@@ -113,16 +119,17 @@ class LoanServiceTest {
         Member member = sampleMember();
         Loan loan = new Loan(book, member);
         book.markBorrowed();
-        setLoanBorrowedAt(loan, LocalDateTime.now().minusDays(1));
+        setLoanBorrowedAt(loan, LocalDateTime.of(2020, 1, 1, 12, 0));
 
         when(loanRepository.findById(1L)).thenReturn(Optional.of(loan));
         when(bookRepository.save(any(Book.class))).thenAnswer(invocation -> invocation.getArgument(0));
         when(loanRepository.save(any(Loan.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-        Loan returnedLoan = loanService.returnBook(1L);
+        LoanResponse returnedLoan = loanService.returnBook(1L);
 
         assertTrue(book.isAvailable());
-        assertNotNull(returnedLoan.getReturnedAt());
+        assertNotNull(returnedLoan.returnedAt());
+        assertFalse(returnedLoan.active());
         verify(bookRepository).save(book);
         verify(loanRepository).save(loan);
     }
@@ -135,25 +142,25 @@ class LoanServiceTest {
         when(memberRepository.findById(2L)).thenReturn(Optional.of(member));
         when(loanRepository.findByMemberAndReturnedAtIsNull(member)).thenReturn(loans);
 
-        List<Loan> result = loanService.findActiveLoansByMember(2L);
+        List<LoanResponse> result = loanService.findActiveLoansByMember(2L);
 
-        assertEquals(loans, result);
+        assertEquals(List.of(LoanResponse.from(loans.get(0))), result);
     }
 
     @Test
-    void findReturnedLoansByMember_whenMemberExists_returnsReturnedLoans() throws Exception {
+    void findReturnedLoansByMember_whenMemberExists_returnsReturnedLoans() {
         Member member = sampleMember();
         Loan loan = new Loan(sampleBook(), member);
-        setLoanBorrowedAt(loan, LocalDateTime.now().minusDays(1));
+        setLoanBorrowedAt(loan, LocalDateTime.of(2020, 1, 1, 12, 0));
         loan.returnBook();
         List<Loan> loans = List.of(loan);
 
         when(memberRepository.findById(2L)).thenReturn(Optional.of(member));
         when(loanRepository.findByMemberAndReturnedAtIsNotNull(member)).thenReturn(loans);
 
-        List<Loan> result = loanService.findReturnedLoansByMember(2L);
+        List<LoanResponse> result = loanService.findReturnedLoansByMember(2L);
 
-        assertEquals(loans, result);
+        assertEquals(List.of(LoanResponse.from(loan)), result);
     }
 
     @Test
@@ -163,72 +170,168 @@ class LoanServiceTest {
     }
 
     @Test
-    void borrowBook_whenMemberDoesNotExists_throwsMemberNotFoundException(){
-        when(bookRepository.findById(BOOK_ID)).thenReturn(Optional.of(sampleBookWithId()));
+    void borrowBook_whenMemberDoesNotExists_throwsMemberNotFoundException() {
+        when(bookRepository.findByIdWhereArchivedFalse(BOOK_ID)).thenReturn(Optional.of(sampleBookWithId()));
         assertThrows(MemberNotFoundException.class,
                 () -> loanService.borrowBook(BOOK_ID, 1L));
     }
 
     @Test
-    void returnBook_whenLoanDoesNotExists_throwsLoanNotFoundException(){
+    void returnBook_whenLoanDoesNotExists_throwsLoanNotFoundException() {
         assertThrows(LoanNotFoundException.class,
                 () -> loanService.returnBook(LOAN_ID));
     }
 
     @Test
-    void returnBook_whenBookIsAlreadyReturned_throwsIllegalStateException(){
+    void returnBook_whenBookIsAlreadyReturned_throwsIllegalStateException() {
         when(loanRepository.findById(LOAN_ID)).thenReturn(Optional.of(sampleReturnedLoanWithIds()));
         assertThrows(IllegalStateException.class,
                 () -> loanService.returnBook(LOAN_ID));
     }
 
     @Test
-    void findActiveLoansByMember_whenMemberDoesNotExists_throwsMemberNotFoundException(){
+    void findActiveLoansByMember_whenMemberDoesNotExists_throwsMemberNotFoundException() {
         assertThrows(MemberNotFoundException.class,
                 () -> loanService.findActiveLoansByMember(MEMBER_ID));
     }
 
     @Test
-    void findReturnedLoansByMember_whenMemberDoesNotExists_throwsMemberNotFoundException(){
+    void findReturnedLoansByMember_whenMemberDoesNotExists_throwsMemberNotFoundException() {
         assertThrows(MemberNotFoundException.class,
                 () -> loanService.findReturnedLoansByMember(MEMBER_ID));
     }
 
     @Test
-    void borrowBook_whenBookIdIsNull_throwsIllegalArgumentException(){
+    void borrowBook_whenBookIdIsNull_throwsIllegalArgumentException() {
         assertThrows(IllegalArgumentException.class,
                 () -> loanService.borrowBook(null, MEMBER_ID));
     }
 
     @Test
-    void borrowBook_whenMemberIdIsNull_throwsIllegalArgumentException(){
-        when(bookRepository.findById(BOOK_ID)).thenReturn(Optional.of(sampleBook()));
+    void borrowBook_whenMemberIdIsNull_throwsIllegalArgumentException() {
+        when(bookRepository.findByIdWhereArchivedFalse(BOOK_ID)).thenReturn(Optional.of(sampleBook()));
         assertThrows(IllegalArgumentException.class,
                 () -> loanService.borrowBook(BOOK_ID, null));
     }
 
     @Test
-    void findById_whenLoanIdIsNull_throwsIllegalArgumentException(){
+    void findById_whenLoanIdIsNull_throwsIllegalArgumentException() {
         assertThrows(IllegalArgumentException.class,
                 () -> loanService.findById(null));
     }
 
     @Test
-    void returnBook_whenLoanIdIsNull_throwsIllegalArgumentException(){
+    void returnBook_whenLoanIdIsNull_throwsIllegalArgumentException() {
         assertThrows(IllegalArgumentException.class,
                 () -> loanService.returnBook(null));
     }
 
     @Test
-    void findActiveLoansByMember_whenMemberIdIsNull_throwsIllegalArgumentException(){
+    void findActiveLoansByMember_whenMemberIdIsNull_throwsIllegalArgumentException() {
         assertThrows(IllegalArgumentException.class,
                 () -> loanService.findActiveLoansByMember(null));
     }
 
     @Test
-    void findReturnedLoansByMember_whenMemberIdIsNull_throwsIllegalArgumentException(){
+    void findReturnedLoansByMember_whenMemberIdIsNull_throwsIllegalArgumentException() {
         assertThrows(IllegalArgumentException.class,
                 () -> loanService.findReturnedLoansByMember(null));
     }
 
+    @Test
+    void borrowBook_whenBookIsArchived_throwsBookNotFoundException() {
+        when(bookRepository.findByIdWhereArchivedFalse(BOOK_ID))
+                .thenReturn(Optional.empty());
+        assertThrows(BookNotFoundException.class,
+                () -> loanService.borrowBook(BOOK_ID, MEMBER_ID));
+    }
+
+    @Test
+    void borrowBook_whenMemberIsArchived_throwsMemberNotFoundException () {
+        when(bookRepository.findByIdWhereArchivedFalse(BOOK_ID))
+                .thenReturn(Optional.of(sampleBookWithId()));
+        when(memberRepository.findByIdWhereArchivedFalse(MEMBER_ID))
+                .thenReturn(Optional.empty());
+        assertThrows(MemberNotFoundException.class,
+                () -> loanService.borrowBook(BOOK_ID, MEMBER_ID));
+    }
+    @Test
+    void findActiveLoansByMember_whenMemberIsArchived_returnsEmptyList() {
+        Member member = sampleMemberWithId();
+        member.markArchived();
+        when(memberRepository.findById(MEMBER_ID))
+                .thenReturn(Optional.of(member));
+        when(loanRepository.findByMemberAndReturnedAtIsNull(member))
+                .thenReturn(List.of());
+        assertEquals(List.of(), loanService.findActiveLoansByMember(MEMBER_ID));
+    }
+    @Test
+    void findReturnedLoansByMember_whenMemberIsArchived_returnsReturnedLoans() {
+        Member member = sampleMemberWithId();
+        member.markArchived();
+        when(memberRepository.findById(MEMBER_ID))
+                .thenReturn(Optional.of(member));
+        when(loanRepository.findByMemberAndReturnedAtIsNotNull(member))
+                .thenReturn(List.of(sampleReturnedLoanWithIds()));
+
+        assertEquals(List.of(LoanResponse.from(sampleReturnedLoanWithIds())),
+                loanService.findReturnedLoansByMember(MEMBER_ID));
+    }
+    @Test
+    void findById_whenBookAndMemberAreArchived_returnsLoanResponse() {
+        Loan loan = sampleActiveLoanWithIds();
+        loan.getBook().markArchived();
+        loan.getMember().markArchived();
+        when(loanRepository.findById(LOAN_ID)).thenReturn(Optional.of(loan));
+
+        LoanResponse response = loanService.findById(LOAN_ID);
+
+        assertEquals(LOAN_ID, response.loanId());
+        assertEquals(BOOK_ID, response.bookId());
+        assertEquals(MEMBER_ID, response.memberId());
+        assertTrue(response.active());
+    }
+
+    @Test
+    void findActiveLoansByMember_whenNoLoansExist_returnsEmptyList() {
+        Member member = sampleMemberWithId();
+        when(memberRepository.findById(MEMBER_ID)).thenReturn(Optional.of(member));
+        when(loanRepository.findByMemberAndReturnedAtIsNull(member)).thenReturn(List.of());
+
+        assertEquals(List.of(), loanService.findActiveLoansByMember(MEMBER_ID));
+    }
+
+    @Test
+    void findReturnedLoansByMember_whenNoLoansExist_returnsEmptyList() {
+        Member member = sampleMemberWithId();
+        when(memberRepository.findById(MEMBER_ID)).thenReturn(Optional.of(member));
+        when(loanRepository.findByMemberAndReturnedAtIsNotNull(member)).thenReturn(List.of());
+
+        assertEquals(List.of(), loanService.findReturnedLoansByMember(MEMBER_ID));
+    }
+
+    @Test
+    void borrowBook_whenActiveLoanExists_doesNotChangeBookOrSave() {
+        Book book = sampleBookWithId();
+        when(bookRepository.findByIdWhereArchivedFalse(BOOK_ID)).thenReturn(Optional.of(book));
+        when(memberRepository.findByIdWhereArchivedFalse(MEMBER_ID))
+                .thenReturn(Optional.of(sampleMemberWithId()));
+        when(loanRepository.findByBookAndReturnedAtIsNull(book))
+                .thenReturn(Optional.of(sampleActiveLoanWithIds()));
+
+        assertThrows(BookAlreadyLoanedException.class, () -> loanService.borrowBook(BOOK_ID, MEMBER_ID));
+        assertTrue(book.isAvailable());
+        verify(bookRepository, never()).save(any(Book.class));
+        verify(loanRepository, never()).save(any(Loan.class));
+    }
+
+    @Test
+    void returnBook_whenLoanIsAlreadyReturned_doesNotSave() {
+        Loan loan = sampleReturnedLoanWithIds();
+        when(loanRepository.findById(LOAN_ID)).thenReturn(Optional.of(loan));
+
+        assertThrows(IllegalStateException.class, () -> loanService.returnBook(LOAN_ID));
+        verify(bookRepository, never()).save(any(Book.class));
+        verify(loanRepository, never()).save(any(Loan.class));
+    }
 }

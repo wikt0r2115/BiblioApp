@@ -1,15 +1,16 @@
 package com.wikt0r2115.library.controller;
 
-import com.wikt0r2115.library.service.*;
+import com.wikt0r2115.library.service.exception.*;
 import org.springframework.dao.DataIntegrityViolationException;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ProblemDetail;
+import org.springframework.http.*;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.context.request.WebRequest;
+import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
 
 @RestControllerAdvice
-public class ApiExceptionHandler {
+public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
 
     @ExceptionHandler(BookNotFoundException.class)
     public ProblemDetail handleBookNotFound(BookNotFoundException exception) {
@@ -41,6 +42,23 @@ public class ApiExceptionHandler {
         return problem;
     }
 
+    @Override
+    protected ResponseEntity<Object> handleMethodArgumentNotValid(
+            MethodArgumentNotValidException exception,
+            HttpHeaders headers,
+            HttpStatusCode status,
+            WebRequest request) {
+
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(
+                status,
+                "One or more request fields are invalid"
+        );
+        problem.setTitle("Validation failed");
+
+        return handleExceptionInternal(
+                exception, problem, headers, status, request);
+    }
+
     @ExceptionHandler(IllegalArgumentException.class)
     public ProblemDetail handleIllegalArgumentException(IllegalArgumentException exception){
         ProblemDetail problem = ProblemDetail.forStatusAndDetail(
@@ -58,16 +76,7 @@ public class ApiExceptionHandler {
                 HttpStatus.CONFLICT,
                 exception.getMessage()
         );
-        problem.setTitle("Book state conflict");
-        return problem;
-    }
-    @ExceptionHandler(MethodArgumentNotValidException.class)
-    public ProblemDetail handleMethodArgumentNotValidException(MethodArgumentNotValidException exception){
-        ProblemDetail problem = ProblemDetail.forStatusAndDetail(
-                HttpStatus.BAD_REQUEST,
-                "One or more request fields are invalid"
-        );
-        problem.setTitle("Validation failed");
+        problem.setTitle("Unable to proceed operation");
         return problem;
     }
 
@@ -81,13 +90,46 @@ public class ApiExceptionHandler {
         return problem;
     }
 
-    @ExceptionHandler(BookAlreadyLoaned.class)
-    public ProblemDetail handleBookAlreadyLoaned(BookAlreadyLoaned exception){
+    @ExceptionHandler(BookAlreadyLoanedException.class)
+    public ProblemDetail handleBookAlreadyLoaned(BookAlreadyLoanedException exception){
         ProblemDetail problem = ProblemDetail.forStatusAndDetail(
                 HttpStatus.CONFLICT,
                 exception.getMessage()
         );
         problem.setTitle("Book is loaned");
+        return problem;
+    }
+
+    @ExceptionHandler(AuthorNotFoundException.class)
+    public ProblemDetail handleAuthorNotFoundException(AuthorNotFoundException exception){
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(
+                HttpStatus.NOT_FOUND,
+                "Author does not exist"
+        );
+        problem.setTitle("Author not found");
+        return problem;
+    }
+
+    @ExceptionHandler(CategoryNotFoundException.class)
+    public ProblemDetail handleCategoryNotFoundException(CategoryNotFoundException exception){
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(
+                HttpStatus.NOT_FOUND,
+                "Category does not exist"
+        );
+        problem.setTitle("Category not found");
+        return problem;
+    }
+
+
+    @ExceptionHandler(Exception.class)
+    public ProblemDetail handleUnexpectedException(Exception exception){
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(
+                HttpStatus.INTERNAL_SERVER_ERROR,
+                "Unexpected error occurred"
+        );
+        problem.setTitle("Unexpected error");
+
+        logger.error("Unexpected error", exception);
         return problem;
     }
 }

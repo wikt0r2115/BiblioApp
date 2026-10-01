@@ -1,5 +1,7 @@
 package com.wikt0r2115.library.controller;
 
+import com.wikt0r2115.library.controller.dto.CategoryResponse;
+import com.wikt0r2115.library.controller.dto.CreateCategoryRequest;
 import com.wikt0r2115.library.service.CategoryService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
@@ -19,12 +21,10 @@ public class CategoryController {
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     public CategoryResponse createNewCategory(@Valid @RequestBody CreateCategoryRequest request){
-        return CategoryResponse.from(categoryService.createCategory(request.name()));
+        return categoryService.createCategory(request.name());
     }
     @GetMapping
     public List<CategoryResponse>  findCategories(){
-        return categoryService.findAll().stream()
-                .map(CategoryResponse::from)
-                .toList();
+        return categoryService.findAll();
     }
 }

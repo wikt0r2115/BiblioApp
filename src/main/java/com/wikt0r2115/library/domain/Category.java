@@ -25,6 +25,8 @@ public class Category {
     private String validateName(String name){
         if(name == null || name.isBlank())
             throw new IllegalArgumentException("Name must not be blank");
+        if(name.strip().length() > 255)
+            throw new IllegalArgumentException("Name must not exceed 255 characters");
         return name.strip();
     }
 

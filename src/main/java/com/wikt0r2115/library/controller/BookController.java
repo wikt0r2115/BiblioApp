@@ -1,8 +1,8 @@
 package com.wikt0r2115.library.controller;
 
+import com.wikt0r2115.library.controller.dto.*;
 import com.wikt0r2115.library.service.BookService;
 import jakarta.validation.Valid;
-import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
@@ -18,29 +18,28 @@ public class BookController {
 
     @GetMapping("/{id}")
     public BookResponse findBookById(@PathVariable Long id){
-        return BookResponse.from(bookService.findById(id));
+        return bookService.findByIdWhereArchivedFalse(id);
     }
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     public BookResponse createNewBook(@Valid @RequestBody CreateBookRequest request){
-        return BookResponse.from(bookService.createBook(
+        return bookService.createBook(
                 request.isbn(),
                 request.title(),
                 request.publicationYear(),
                 request.authorId(),
-                request.categoryIds()));
+                request.categoryIds());
     }
 
     @GetMapping
-    public PageResponse<BookResponse> findBooks(BookFilterRequest filter, Pageable pageable){
-        Page<BookResponse> page = bookService.findAll(
+    public PageResponse<BookResponse> findBooks(@Valid @ModelAttribute BookFilterRequest filter, Pageable pageable){
+        return bookService.findAll(
                 filter.authorId(),
                 filter.title(),
                 filter.available(),
                 pageable
-        ).map(BookResponse::from);
-        return PageResponse.from(page);
+        );
     }
 
     @DeleteMapping("/{id}")
@@ -51,17 +50,17 @@ public class BookController {
 
     @PutMapping("/{id}")
     public BookResponse updateDetails(@PathVariable Long id, @Valid @RequestBody UpdateBookDetailsRequest request){
-        return BookResponse.from(bookService.updateDetails(
+        return bookService.updateDetails(
                 id,
                 request.title(),
                 request.publicationYear(),
                 request.authorId(),
-                request.categoryIds()));
+                request.categoryIds());
     }
 
     @PutMapping("/{id}/isbn")
     public BookResponse changeIsbn(@PathVariable Long id, @Valid @RequestBody ChangeBookIsbnRequest request){
-        return BookResponse.from(bookService.changeIsbn(id,request.isbn()));
+        return bookService.changeIsbn(id,request.isbn());
     }
 
 }

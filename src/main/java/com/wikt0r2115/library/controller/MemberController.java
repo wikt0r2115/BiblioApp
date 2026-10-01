@@ -1,5 +1,8 @@
 package com.wikt0r2115.library.controller;
 
+import com.wikt0r2115.library.controller.dto.CreateMemberRequest;
+import com.wikt0r2115.library.controller.dto.MemberResponse;
+import com.wikt0r2115.library.controller.dto.UpdateMemberRequest;
 import com.wikt0r2115.library.service.MemberService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
@@ -16,27 +19,27 @@ public class MemberController {
 
     @GetMapping("/{id}")
     public MemberResponse findMember(@PathVariable Long id){
-        return MemberResponse.from(memberService.findById(id));
+        return memberService.findByIdWhereArchivedFalse(id);
     }
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     public MemberResponse createNewMember(@Valid @RequestBody CreateMemberRequest request){
-        return MemberResponse.from(memberService.createMember(
+        return memberService.createMember(
                 request.firstName(),
                 request.lastName(),
                 request.email()
-        ));
+        );
     }
 
     @PutMapping("/{id}")
     public MemberResponse updateDetails(@PathVariable Long id, @Valid @RequestBody UpdateMemberRequest request){
-        return MemberResponse.from(memberService.updateMember(
+        return memberService.updateMember(
                 id,
                 request.firstName(),
                 request.lastName(),
                 request.email()
-        ));
+        );
     }
 
     @DeleteMapping("/{id}")

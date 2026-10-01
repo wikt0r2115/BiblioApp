@@ -26,6 +26,9 @@ public class Member {
     @Column(nullable = false)
     private String email;
 
+    @Column(nullable = false)
+    private boolean archived = false;
+
     protected Member(){}
 
     public Member(String firstName, String lastName, String email){
@@ -43,9 +46,15 @@ public class Member {
         this.email = newEmail;
     }
 
+    public void markArchived(){
+        archived = true;
+    }
+
     private String normalizeString(String string){
         if(string == null || string.isBlank())
             throw new IllegalArgumentException("Must not be blank");
+        if(string.strip().length() > 255)
+            throw new IllegalArgumentException("Must not exceed 255 characters");
         return string.strip();
     }
 
@@ -61,4 +70,5 @@ public class Member {
     public String getFirstName(){ return firstName; }
     public String getLastName() { return lastName; }
     public String getEmail() { return email; }
+    public boolean isArchived() {return archived;}
 }

@@ -41,6 +41,9 @@ public class Book {
             )
     private Set<Category> categories;
 
+    @Column(nullable = false)
+    private boolean archived = false;
+
     protected Book(){}
 
     public Book(String isbn, String title, int publicationYear, Author author, Set<Category> categories){
@@ -58,6 +61,8 @@ public class Book {
         isbn = isbn.replace("-","");
         isbn = isbn.replaceAll("\\s+","");
         isbn = isbn.replace("x","X");
+        if(isbn.length() > 255)
+            throw new IllegalArgumentException("ISBN must not exceed 255 characters");
         if(!validateIsbn10(isbn) && !validateIsbn13(isbn))
             throw new IllegalArgumentException("ISBN is invalid");
         return isbn;
@@ -109,6 +114,8 @@ public class Book {
     private String normalizeTitle(String title){
         if(title == null || title.isBlank())
             throw new IllegalArgumentException("Title must not be blank");
+        if(title.strip().length() > 255)
+            throw new IllegalArgumentException("Title must not exceed 255 characters");
 
         return title.strip();
     }
@@ -165,6 +172,10 @@ public class Book {
         this.available = true;
     }
 
+    public void markArchived(){
+        this.archived = true;
+    }
+
     public Long getBookId() {return bookId;}
     public String getTitle(){return title;}
     public boolean isAvailable(){return available;}
@@ -172,4 +183,5 @@ public class Book {
     public Set<Category> getCategories(){return categories;}
     public String getIsbn(){return isbn;}
     public int getPublicationYear(){return publicationYear;}
+    public boolean isArchived() {return archived;}
 }

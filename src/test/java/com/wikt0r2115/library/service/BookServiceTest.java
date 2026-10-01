@@ -1,30 +1,47 @@
 package com.wikt0r2115.library.service;
 
+import com.wikt0r2115.library.controller.dto.BookResponse;
+import com.wikt0r2115.library.controller.dto.PageResponse;
 import com.wikt0r2115.library.domain.Author;
 import com.wikt0r2115.library.domain.Book;
 import com.wikt0r2115.library.domain.Category;
 import com.wikt0r2115.library.infrastructure.AuthorRepository;
 import com.wikt0r2115.library.infrastructure.BookRepository;
 import com.wikt0r2115.library.infrastructure.CategoryRepository;
+import com.wikt0r2115.library.infrastructure.LoanRepository;
+import com.wikt0r2115.library.service.exception.AuthorNotFoundException;
+import com.wikt0r2115.library.service.exception.BookNotFoundException;
+import com.wikt0r2115.library.service.exception.CategoryNotFoundException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.data.domain.*;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static com.wikt0r2115.library.TestData.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
-public class BookServiceTest {
+class BookServiceTest {
     @Mock
     private BookRepository bookRepository;
 
@@ -34,159 +51,303 @@ public class BookServiceTest {
     @Mock
     private CategoryRepository categoryRepository;
 
+    @Mock
+    private LoanRepository loanRepository;
+
     private BookService bookService;
 
-    private final Long BOOK_ID = 1L;
-    private final Long AUTHOR_ID = 2L;
-    private final Long NEW_AUTHOR_ID = 3L;
-    private final Long CATEGORY_ID = 4L;
-    private final Long SECOND_CATEGORY_ID = 5L;
-    private final Long NEW_CATEGORY_ID = 6L;
-    private final Long SECOND_NEW_CATEGORY_ID = 7L;
-    private final String ISBN = "152935112X";
-    private final String TITLE = "Atomic Habits";
-    private final int PUBLICATION_YEAR = 2005;
-    private final Author AUTHOR = new Author("James", "Clear");
-    private final Author NEW_AUTHOR = new Author("Robert", "Martin");
-    private final Category CATEGORY = new Category("Psychology");
-    private final Category SECOND_CATEGORY = new Category("Science");
-    private final Category NEW_CATEGORY = new Category("Programming");
-    private final Category SECOND_NEW_CATEGORY = new Category("Craft");
-    private final Set<Long> CATEGORY_IDS = Set.of(CATEGORY_ID, SECOND_CATEGORY_ID);
-    private final Set<Long> NEW_CATEGORY_IDS = Set.of(NEW_CATEGORY_ID, SECOND_NEW_CATEGORY_ID);
-    private final Set<Category> CATEGORIES = Set.of(CATEGORY, SECOND_CATEGORY);
-    private final Set<Category> NEW_CATEGORIES = Set.of(NEW_CATEGORY, SECOND_NEW_CATEGORY);
-    private final String NEW_ISBN = "9780136091813";
-    private final String NEW_TITLE = "TITLE";
-    private final int NEW_PUBLICATION_YEAR = 2018;
-
     @BeforeEach
-    void setUp(){
-        bookService = new BookService(bookRepository, authorRepository, categoryRepository);
+    void setUp() {
+        bookService = new BookService(bookRepository, authorRepository, categoryRepository, loanRepository);
     }
 
     @Test
-    public void createBook_savesBook(){
-        givenExistingAuthorAndCategories(AUTHOR_ID, AUTHOR, CATEGORY_IDS, CATEGORIES);
+    void createBook_savesBook() {
+        Author author = sampleAuthor();
+        Set<Category> categories = sampleCategories();
+        givenExistingAuthorAndCategories(AUTHOR_ID, author, CATEGORY_IDS, categories);
         when(bookRepository.save(any(Book.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
 
-        Book book = bookService.createBook(ISBN, TITLE, PUBLICATION_YEAR, AUTHOR_ID, CATEGORY_IDS);
+        BookResponse book = bookService.createBook(
+                NORMALIZED_VALID_ISBN10, BOOK_TITLE, PUBLICATION_YEAR, AUTHOR_ID, CATEGORY_IDS);
 
-        assertEquals(ISBN, book.getIsbn());
-        assertEquals(TITLE, book.getTitle());
-        assertEquals(PUBLICATION_YEAR, book.getPublicationYear());
-        assertSame(AUTHOR, book.getAuthor());
-        assertEquals(CATEGORIES, book.getCategories());
-        assertTrue(book.isAvailable());
+        assertEquals(NORMALIZED_VALID_ISBN10, book.isbn());
+        assertEquals(BOOK_TITLE, book.title());
+        assertEquals(PUBLICATION_YEAR, book.publicationYear());
+        assertEquals(author.getFirstName(), book.author().firstName());
+        assertEquals(categories.size(), book.categories().size());
+        assertTrue(book.available());
 
-        verify(bookRepository).save(book);
+        verify(bookRepository).save(any(Book.class));
     }
 
     @Test
-    public void createBook_whenAuthorDoesntExist_throwsIllegalArgumentException(){
+    void createBook_whenAuthorDoesntExist_throwsAuthorNotFoundException() {
         when(authorRepository.findById(AUTHOR_ID))
                 .thenReturn(Optional.empty());
 
-        assertThrows(IllegalArgumentException.class,
-                () -> bookService.createBook(ISBN, TITLE, PUBLICATION_YEAR, AUTHOR_ID, CATEGORY_IDS));
+        assertThrows(AuthorNotFoundException.class,
+                () -> bookService.createBook(
+                        NORMALIZED_VALID_ISBN10, BOOK_TITLE, PUBLICATION_YEAR, AUTHOR_ID, CATEGORY_IDS));
     }
 
     @Test
-    public void createBook_whenCategoryDoesntExist_throwsIllegalArgumentException(){
+    void createBook_whenCategoryDoesntExist_throwsCategoryNotFoundException() {
         when(authorRepository.findById(AUTHOR_ID))
-                .thenReturn(Optional.of(AUTHOR));
+                .thenReturn(Optional.of(sampleAuthor()));
         when(categoryRepository.findAllById(CATEGORY_IDS))
-                .thenReturn(List.of(CATEGORY));
+                .thenReturn(List.of(sampleCategory()));
 
-        assertThrows(IllegalArgumentException.class,
-                () -> bookService.createBook(ISBN, TITLE, PUBLICATION_YEAR, AUTHOR_ID, CATEGORY_IDS));
+        assertThrows(CategoryNotFoundException.class,
+                () -> bookService.createBook(
+                        NORMALIZED_VALID_ISBN10, BOOK_TITLE, PUBLICATION_YEAR, AUTHOR_ID, CATEGORY_IDS));
     }
 
     @Test
-    public void findById_whenBookExists_returnsBook(){
-        Book book = sampleBook();
+    void findById_whenBookExists_returnsBook() {
+        Book book = sampleBookWithIsbn10();
         when(bookRepository.findById(BOOK_ID))
                 .thenReturn(Optional.of(book));
         Book result = bookService.findById(BOOK_ID);
-        assertEquals(book, result);
+        assertSame(book, result);
     }
 
     @Test
-    public void findById_whenBookDoesntExist_throwsBookNotFoundException(){
+    void findById_whenBookDoesntExist_throwsBookNotFoundException() {
         when(bookRepository.findById(BOOK_ID))
                 .thenReturn(Optional.empty());
         assertThrows(BookNotFoundException.class, () -> bookService.findById(BOOK_ID));
     }
 
     @Test
-    public void findAll_withFilters_returnsFilteredPage(){
+    void findAll_withFilters_returnsFilteredPage() {
         Pageable pageable = PageRequest.of(0, 10);
         Page<Book> expectedPage = new PageImpl<>(Collections.emptyList());
 
-        when(bookRepository.findWithFilters(AUTHOR_ID, TITLE, true, pageable))
+        when(bookRepository.findWithFilters(AUTHOR_ID, BOOK_TITLE, true, pageable))
                 .thenReturn(expectedPage);
 
-        Page<Book> result = bookService.findAll(AUTHOR_ID, "  " + TITLE + "  ", true, pageable);
+        PageResponse<BookResponse> result = bookService.findAll(
+                AUTHOR_ID, "  " + BOOK_TITLE + "  ", true, pageable);
 
-        assertSame(expectedPage, result);
-        verify(bookRepository).findWithFilters(AUTHOR_ID, TITLE, true, pageable);
+        assertEquals(0, result.totalElements());
+        assertTrue(result.content().isEmpty());
+        verify(bookRepository).findWithFilters(AUTHOR_ID, BOOK_TITLE, true, pageable);
     }
 
     @Test
-    public void updateDetails_whenBookExists_updatesAndSavesBook(){
-        when(bookRepository.findById(BOOK_ID))
-                .thenReturn(Optional.of(sampleBook()));
-        givenExistingAuthorAndCategories(NEW_AUTHOR_ID, NEW_AUTHOR, NEW_CATEGORY_IDS, NEW_CATEGORIES);
+    void findAll_whenPageContainsBooks_returnsMappedResponses() {
+        Pageable pageable = PageRequest.of(0, 10);
+        Page<Book> expectedPage = new PageImpl<>(List.of(sampleBookWithIsbn10()));
+
+        when(bookRepository.findWithFilters(AUTHOR_ID, BOOK_TITLE, true, pageable))
+                .thenReturn(expectedPage);
+
+        PageResponse<BookResponse> result = bookService.findAll(
+                AUTHOR_ID, "  " + BOOK_TITLE + "  ", true, pageable);
+
+        assertEquals(1, result.content().size());
+        assertEquals(NORMALIZED_VALID_ISBN10, result.content().getFirst().isbn());
+        assertEquals(BOOK_TITLE, result.content().getFirst().title());
+    }
+
+    @Test
+    void updateDetails_whenBookExists_updatesAndSavesBook() {
+        Author newAuthor = sampleNewAuthor();
+        Set<Category> newCategories = sampleNewCategories();
+        Book existingBook = sampleBookWithIsbn10();
+        when(bookRepository.findByIdWhereArchivedFalse(BOOK_ID))
+                .thenReturn(Optional.of(existingBook));
+        givenExistingAuthorAndCategories(
+                NEW_AUTHOR_ID, newAuthor, NEW_CATEGORY_IDS, newCategories);
         when(bookRepository.save(any(Book.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
 
-        Book book = bookService.updateDetails(
+        BookResponse book = bookService.updateDetails(
                 BOOK_ID,
-                NEW_TITLE,
+                NEW_BOOK_TITLE,
                 NEW_PUBLICATION_YEAR,
                 NEW_AUTHOR_ID,
                 NEW_CATEGORY_IDS);
 
-        assertEquals(NEW_TITLE, book.getTitle());
-        assertEquals(NEW_PUBLICATION_YEAR, book.getPublicationYear());
-        assertSame(NEW_AUTHOR, book.getAuthor());
-        assertEquals(NEW_CATEGORIES, book.getCategories());
+        assertEquals(NEW_BOOK_TITLE, book.title());
+        assertEquals(NEW_PUBLICATION_YEAR, book.publicationYear());
+        assertEquals(newAuthor.getFirstName(), book.author().firstName());
+        assertEquals(newCategories.size(), book.categories().size());
 
-        verify(bookRepository).save(book);
+        verify(bookRepository).save(existingBook);
     }
 
     @Test
-    public void changeIsbn_whenBookExists_updatesAndSavesBook(){
-        when(bookRepository.findById(BOOK_ID))
-                .thenReturn(Optional.of(sampleBook()));
+    void changeIsbn_whenBookExists_updatesAndSavesBook() {
+        Book existingBook = sampleBookWithIsbn10();
+        when(bookRepository.findByIdWhereArchivedFalse(BOOK_ID))
+                .thenReturn(Optional.of(existingBook));
         when(bookRepository.save(any(Book.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
-        Book book = bookService.changeIsbn(BOOK_ID, NEW_ISBN);
-        assertEquals(NEW_ISBN, book.getIsbn());
-        verify(bookRepository).save(book);
+        BookResponse book = bookService.changeIsbn(BOOK_ID, NEW_ISBN);
+        assertEquals(NEW_ISBN, book.isbn());
+        verify(bookRepository).save(existingBook);
     }
 
     @Test
-    public void deleteBook_whenBookExists_deletesBook(){
-        Book existingBook = sampleBook();
-        when(bookRepository.findById(BOOK_ID))
+    void deleteBook_whenBookExists_archivesBook() {
+        Book existingBook = sampleBookWithIsbn10();
+        when(bookRepository.findByIdWhereArchivedFalse(BOOK_ID))
                 .thenReturn(Optional.of(existingBook));
 
         bookService.deleteBook(BOOK_ID);
 
-        verify(bookRepository).delete(existingBook);
+        assertTrue(existingBook.isArchived());
+        verify(bookRepository).save(existingBook);
     }
 
-    private Book sampleBook(){
-        return new Book(ISBN, TITLE, PUBLICATION_YEAR, AUTHOR, CATEGORIES);
+    @Test
+    void findAll_whenSortFieldIsUnsupported_throwsIllegalArgumentException() {
+        Pageable pageable = PageRequest.of(0, 10, Sort.by("doesNotExist"));
+
+        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class,
+                () -> bookService.findAll(null, null, null, pageable));
+
+        assertEquals("Unsupported sort field doesNotExist", exception.getMessage());
+        verifyNoInteractions(bookRepository);
+    }
+
+    @Test
+    void findByIdWhereArchivedFalse_whenBookExists_returnsMappedResponse() {
+        when(bookRepository.findByIdWhereArchivedFalse(BOOK_ID))
+                .thenReturn(Optional.of(sampleBookWithId()));
+
+        BookResponse response = bookService.findByIdWhereArchivedFalse(BOOK_ID);
+
+        assertEquals(BOOK_ID, response.id());
+        assertEquals(NORMALIZED_VALID_ISBN13, response.isbn());
+    }
+
+    @Test
+    void findByIdWhereArchivedFalse_whenBookIsMissing_throwsBookNotFoundException() {
+        when(bookRepository.findByIdWhereArchivedFalse(BOOK_ID)).thenReturn(Optional.empty());
+
+        assertThrows(BookNotFoundException.class,
+                () -> bookService.findByIdWhereArchivedFalse(BOOK_ID));
+    }
+
+    @Test
+    void createBook_whenAuthorIdIsNull_doesNotSave() {
+        assertThrows(IllegalArgumentException.class,
+                () -> bookService.createBook(VALID_ISBN13, BOOK_TITLE, PUBLICATION_YEAR, null, CATEGORY_IDS));
+        verifyNoInteractions(bookRepository, authorRepository, categoryRepository);
+    }
+
+    @Test
+    void createBook_whenCategoryIdsAreInvalid_doesNotSave() {
+        when(authorRepository.findById(AUTHOR_ID)).thenReturn(Optional.of(sampleAuthor()));
+
+        assertThrows(IllegalArgumentException.class,
+                () -> bookService.createBook(VALID_ISBN13, BOOK_TITLE, PUBLICATION_YEAR, AUTHOR_ID, null));
+        assertThrows(IllegalArgumentException.class,
+                () -> bookService.createBook(VALID_ISBN13, BOOK_TITLE, PUBLICATION_YEAR, AUTHOR_ID, Set.of()));
+        verifyNoInteractions(bookRepository, categoryRepository);
+    }
+
+    @Test
+    void findAll_whenTitleIsBlank_passesNullFilter() {
+        Pageable pageable = PageRequest.of(0, 10);
+        when(bookRepository.findWithFilters(null, null, null, pageable))
+                .thenReturn(Page.empty(pageable));
+
+        PageResponse<BookResponse> response = bookService.findAll(null, "   ", null, pageable);
+
+        assertTrue(response.content().isEmpty());
+        assertEquals(0, response.totalElements());
+        verify(bookRepository).findWithFilters(null, null, null, pageable);
+    }
+
+    @Test
+    void updateDetails_whenBookIsMissing_doesNotSave() {
+        when(bookRepository.findByIdWhereArchivedFalse(BOOK_ID)).thenReturn(Optional.empty());
+
+        assertThrows(BookNotFoundException.class,
+                () -> bookService.updateDetails(BOOK_ID, NEW_BOOK_TITLE, NEW_PUBLICATION_YEAR,
+                        NEW_AUTHOR_ID, NEW_CATEGORY_IDS));
+        verifyNoInteractions(authorRepository, categoryRepository);
+        verify(bookRepository, never()).save(any(Book.class));
+    }
+
+    @Test
+    void updateDetails_whenAuthorIsMissing_doesNotSave() {
+        Book existingBook = sampleBookWithId();
+        when(bookRepository.findByIdWhereArchivedFalse(BOOK_ID)).thenReturn(Optional.of(existingBook));
+        when(authorRepository.findById(NEW_AUTHOR_ID)).thenReturn(Optional.empty());
+
+        assertThrows(AuthorNotFoundException.class,
+                () -> bookService.updateDetails(BOOK_ID, NEW_BOOK_TITLE, NEW_PUBLICATION_YEAR,
+                        NEW_AUTHOR_ID, NEW_CATEGORY_IDS));
+        assertEquals(BOOK_TITLE, existingBook.getTitle());
+        verify(bookRepository, never()).save(any(Book.class));
+    }
+
+    @Test
+    void updateDetails_whenCategoryIsMissing_doesNotSave() {
+        Book existingBook = sampleBookWithId();
+        when(bookRepository.findByIdWhereArchivedFalse(BOOK_ID)).thenReturn(Optional.of(existingBook));
+        when(authorRepository.findById(NEW_AUTHOR_ID)).thenReturn(Optional.of(sampleNewAuthor()));
+        when(categoryRepository.findAllById(NEW_CATEGORY_IDS)).thenReturn(List.of(sampleCategory()));
+
+        assertThrows(CategoryNotFoundException.class,
+                () -> bookService.updateDetails(BOOK_ID, NEW_BOOK_TITLE, NEW_PUBLICATION_YEAR,
+                        NEW_AUTHOR_ID, NEW_CATEGORY_IDS));
+        assertEquals(BOOK_TITLE, existingBook.getTitle());
+        verify(bookRepository, never()).save(any(Book.class));
+    }
+
+    @Test
+    void changeIsbn_whenBookIsMissing_throwsBookNotFoundException() {
+        when(bookRepository.findByIdWhereArchivedFalse(BOOK_ID)).thenReturn(Optional.empty());
+
+        assertThrows(BookNotFoundException.class,
+                () -> bookService.changeIsbn(BOOK_ID, NEW_ISBN));
+        verify(bookRepository, never()).save(any(Book.class));
+    }
+
+    @Test
+    void changeIsbn_whenIsbnIsInvalid_preservesOriginalValue() {
+        Book existingBook = sampleBookWithId();
+        when(bookRepository.findByIdWhereArchivedFalse(BOOK_ID)).thenReturn(Optional.of(existingBook));
+
+        assertThrows(IllegalArgumentException.class,
+                () -> bookService.changeIsbn(BOOK_ID, "invalid"));
+        assertEquals(NORMALIZED_VALID_ISBN13, existingBook.getIsbn());
+        verify(bookRepository, never()).save(any(Book.class));
+    }
+
+    @Test
+    void deleteBook_whenActiveLoanExists_doesNotArchive() {
+        Book existingBook = sampleBookWithId();
+        when(bookRepository.findByIdWhereArchivedFalse(BOOK_ID)).thenReturn(Optional.of(existingBook));
+        when(loanRepository.findByBookAndReturnedAtIsNull(existingBook))
+                .thenReturn(Optional.of(sampleActiveLoanWithIds()));
+
+        assertThrows(IllegalStateException.class, () -> bookService.deleteBook(BOOK_ID));
+        assertFalse(existingBook.isArchived());
+        verify(bookRepository, never()).save(any(Book.class));
+    }
+
+    @Test
+    void deleteBook_whenBookIsMissing_doesNotSave() {
+        when(bookRepository.findByIdWhereArchivedFalse(BOOK_ID)).thenReturn(Optional.empty());
+
+        assertThrows(BookNotFoundException.class, () -> bookService.deleteBook(BOOK_ID));
+        verifyNoInteractions(loanRepository);
+        verify(bookRepository, never()).save(any(Book.class));
     }
 
     private void givenExistingAuthorAndCategories(
             Long authorId,
             Author author,
             Set<Long> categoryIds,
-            Set<Category> categories){
+            Set<Category> categories) {
         when(authorRepository.findById(authorId))
                 .thenReturn(Optional.of(author));
         when(categoryRepository.findAllById(categoryIds))

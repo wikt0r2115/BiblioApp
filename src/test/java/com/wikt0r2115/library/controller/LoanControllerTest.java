@@ -1,7 +1,12 @@
 package com.wikt0r2115.library.controller;
 
+import com.wikt0r2115.library.controller.dto.LoanResponse;
 import com.wikt0r2115.library.domain.Loan;
 import com.wikt0r2115.library.service.*;
+import com.wikt0r2115.library.service.exception.BookAlreadyLoanedException;
+import com.wikt0r2115.library.service.exception.BookNotFoundException;
+import com.wikt0r2115.library.service.exception.LoanNotFoundException;
+import com.wikt0r2115.library.service.exception.MemberNotFoundException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -16,8 +21,11 @@ import java.util.List;
 
 import static com.wikt0r2115.library.TestData.sampleActiveLoanWithIds;
 import static com.wikt0r2115.library.TestData.sampleReturnedLoanWithIds;
+import static com.wikt0r2115.library.TestData.MEMBER_ID;
+import static com.wikt0r2115.library.TestData.LOAN_ID;
 import static org.hamcrest.Matchers.hasSize;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -44,7 +52,7 @@ class LoanControllerTest {
     @Test
     void borrowBook_whenRequestIsValid_returnsCreatedLoan() throws Exception {
         when(loanService.borrowBook(1L, 2L))
-                .thenReturn(activeLoan());
+                .thenReturn(LoanResponse.from(activeLoan()));
 
         mockMvc.perform(post("/loans")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -74,6 +82,7 @@ class LoanControllerTest {
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.title").value("Validation failed"))
                 .andExpect(jsonPath("$.detail").value("One or more request fields are invalid"));
+        verifyNoInteractions(loanService);
     }
 
     @Test
@@ -98,7 +107,7 @@ class LoanControllerTest {
     @Test
     void findLoanById_whenLoanExists_returnsLoan() throws Exception {
         when(loanService.findById(10L))
-                .thenReturn(activeLoan());
+                .thenReturn(LoanResponse.from(activeLoan()));
 
         mockMvc.perform(get("/loans/10"))
                 .andExpect(status().isOk())
@@ -109,7 +118,7 @@ class LoanControllerTest {
     @Test
     void returnBook_whenLoanExists_returnsReturnedLoan() throws Exception {
         when(loanService.returnBook(10L))
-                .thenReturn(returnedLoan());
+                .thenReturn(LoanResponse.from(returnedLoan()));
 
         mockMvc.perform(post("/loans/10/return"))
                 .andExpect(status().isOk())
@@ -131,7 +140,7 @@ class LoanControllerTest {
     @Test
     void getActiveLoans_returnsLoans() throws Exception {
         when(loanService.findActiveLoansByMember(2L))
-                .thenReturn(List.of(activeLoan()));
+                .thenReturn(List.of(LoanResponse.from(activeLoan())));
 
         mockMvc.perform(get("/members/2/loans/active"))
                 .andExpect(status().isOk())
@@ -143,7 +152,7 @@ class LoanControllerTest {
     @Test
     void getHistoryLoans_returnsLoans() throws Exception {
         when(loanService.findReturnedLoansByMember(2L))
-                .thenReturn(List.of(returnedLoan()));
+                .thenReturn(List.of(LoanResponse.from(returnedLoan())));
 
         mockMvc.perform(get("/members/2/loans/history"))
                 .andExpect(status().isOk())
@@ -155,7 +164,7 @@ class LoanControllerTest {
     @Test
     void borrowBook_whenBookAlreadyLoaned_returnsConflict() throws Exception{
         when(loanService.borrowBook(1L, 2L))
-                .thenThrow(new BookAlreadyLoaned(1L));
+                .thenThrow(new BookAlreadyLoanedException(1L));
 
         mockMvc.perform(post("/loans")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -186,6 +195,63 @@ class LoanControllerTest {
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.title").value("Member not found"))
                 .andExpect(jsonPath("$.detail").value("Member does not exist"));
+    }
+
+    @Test
+    void findLoanById_whenLoanDoesNotExist_returnsNotFound() throws Exception {
+        when(loanService.findById(LOAN_ID)).thenThrow(new LoanNotFoundException(LOAN_ID));
+
+        mockMvc.perform(get("/loans/{loanId}", LOAN_ID))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.title").value("Loan not found"));
+    }
+
+    @Test
+    void returnBook_whenAlreadyReturned_returnsConflict() throws Exception {
+        when(loanService.returnBook(LOAN_ID))
+                .thenThrow(new IllegalStateException("book is already returned"));
+
+        mockMvc.perform(post("/loans/{loanId}/return", LOAN_ID))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.title").value("Unable to proceed operation"));
+    }
+
+    @Test
+    void getActiveLoans_whenMemberDoesNotExist_returnsNotFound() throws Exception {
+        when(loanService.findActiveLoansByMember(MEMBER_ID))
+                .thenThrow(new MemberNotFoundException(MEMBER_ID));
+
+        mockMvc.perform(get("/members/{memberId}/loans/active", MEMBER_ID))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.title").value("Member not found"));
+    }
+
+    @Test
+    void getHistoryLoans_whenMemberDoesNotExist_returnsNotFound() throws Exception {
+        when(loanService.findReturnedLoansByMember(MEMBER_ID))
+                .thenThrow(new MemberNotFoundException(MEMBER_ID));
+
+        mockMvc.perform(get("/members/{memberId}/loans/history", MEMBER_ID))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.title").value("Member not found"));
+    }
+
+    @Test
+    void getActiveLoans_whenNoLoansExist_returnsEmptyList() throws Exception {
+        when(loanService.findActiveLoansByMember(MEMBER_ID)).thenReturn(List.of());
+
+        mockMvc.perform(get("/members/{memberId}/loans/active", MEMBER_ID))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$", hasSize(0)));
+    }
+
+    @Test
+    void getHistoryLoans_whenNoLoansExist_returnsEmptyList() throws Exception {
+        when(loanService.findReturnedLoansByMember(MEMBER_ID)).thenReturn(List.of());
+
+        mockMvc.perform(get("/members/{memberId}/loans/history", MEMBER_ID))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$", hasSize(0)));
     }
 
 
