@@ -31,6 +31,29 @@ Warunek na początku chroni istniejący plik `.env` przed nadpisaniem. `sudo` je
 
 PostgreSQL nasłuchuje lokalnie na porcie 5432. Flyway automatycznie uruchamia migrację schematu, a Hibernate sprawdza jego zgodność z encjami. Dane są przechowywane w wolumenie `postgres_data`. `sudo docker compose down` zatrzymuje środowisko i zachowuje dane; dodanie `--volumes` usuwa również bazę.
 
+## Demo w Dockerze
+
+Wymagany jest Docker z wtyczką Compose. Demo uruchamia PostgreSQL i aplikację oraz wypełnia bazę przykładowymi danymi. Nie wymaga pliku `.env`.
+
+```bash
+docker compose -f compose.demo.yaml up --build -d --wait
+curl 'http://127.0.0.1:8080/book?size=5'
+```
+
+API jest dostępne pod `http://127.0.0.1:8080`. Migracja profilu `demo` tworzy po 100 autorów, kategorii, czytelników, książek, powiązań książka–kategoria i wypożyczeń. Spośród wypożyczeń 20 jest aktywnych. Dane są przechowywane w osobnym wolumenie `biblioapp-demo_demo_postgres_data`; ponowne uruchomienie nie dodaje duplikatów. Hasło w pliku Compose służy tylko do lokalnego demo; port bazy nie jest publikowany.
+
+```bash
+docker compose -f compose.demo.yaml down
+# Usunięcie danych demo i ponowne utworzenie ich od zera:
+docker compose -f compose.demo.yaml down --volumes
+```
+
+Jeśli Docker wymaga uprawnień administratora, dodaj `sudo` przed `docker compose`. Gdy port 8080 jest zajęty, zmień jego lewą stronę w `compose.demo.yaml`.
+
+## CI/CD
+
+Workflow GitHub Actions uruchamia testy Mavena przy pull requestach i zmianach na `main`, po czym buduje demo i sprawdza liczby rekordów oraz API. Po przejściu obu etapów dla `main` publikuje obraz aplikacji jako `ghcr.io/wikt0r2115/biblioapp:latest` oraz z tagiem `sha-<pełny SHA commita>`. Pakiet GHCR może wymagać ustawienia publicznej widoczności w GitHub, jeśli ma być dostępny bez logowania.
+
 ## Najważniejsze endpointy
 
 | Zasób | Operacje |

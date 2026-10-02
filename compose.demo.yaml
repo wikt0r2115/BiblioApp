@@ -1,0 +1,32 @@
+name: biblioapp-demo
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: biblioapp_demo
+      POSTGRES_USER: biblioapp_demo
+      POSTGRES_PASSWORD: demo_only_password
+    volumes:
+      - demo_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  app:
+    build: .
+    environment:
+      SPRING_PROFILES_ACTIVE: postgres,demo
+      DB_URL: jdbc:postgresql://postgres:5432/biblioapp_demo
+      DB_USERNAME: biblioapp_demo
+      DB_PASSWORD: demo_only_password
+    ports:
+      - "127.0.0.1:8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  demo_postgres_data:
