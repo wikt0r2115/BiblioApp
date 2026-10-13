@@ -122,6 +122,7 @@ class LoanServiceTest {
         setLoanBorrowedAt(loan, LocalDateTime.of(2020, 1, 1, 12, 0));
 
         when(loanRepository.findById(1L)).thenReturn(Optional.of(loan));
+        when(loanRepository.findBookIdByLoanId(1L)).thenReturn(Optional.of(1L));
         when(bookRepository.save(any(Book.class))).thenAnswer(invocation -> invocation.getArgument(0));
         when(loanRepository.save(any(Loan.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
@@ -184,6 +185,7 @@ class LoanServiceTest {
 
     @Test
     void returnBook_whenBookIsAlreadyReturned_throwsIllegalStateException() {
+        when(loanRepository.findBookIdByLoanId(LOAN_ID)).thenReturn(Optional.of(BOOK_ID));
         when(loanRepository.findById(LOAN_ID)).thenReturn(Optional.of(sampleReturnedLoanWithIds()));
         assertThrows(IllegalStateException.class,
                 () -> loanService.returnBook(LOAN_ID));
@@ -328,6 +330,7 @@ class LoanServiceTest {
     @Test
     void returnBook_whenLoanIsAlreadyReturned_doesNotSave() {
         Loan loan = sampleReturnedLoanWithIds();
+        when(loanRepository.findBookIdByLoanId(LOAN_ID)).thenReturn(Optional.of(BOOK_ID));
         when(loanRepository.findById(LOAN_ID)).thenReturn(Optional.of(loan));
 
         assertThrows(IllegalStateException.class, () -> loanService.returnBook(LOAN_ID));

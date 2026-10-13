@@ -37,7 +37,9 @@ public class MemberService {
                 .orElseThrow(() -> new MemberNotFoundException(id));
     }
 
+    @Transactional
     public MemberResponse updateMember(Long id, String firstName, String lastName, String email){
+        memberRepository.lockById(id);
         Member member = findActiveMember(id);
         member.updateDetails(firstName, lastName, email);
         return MemberResponse.from(memberRepository.save(member));
@@ -45,6 +47,9 @@ public class MemberService {
 
     @Transactional
     public void deleteMember(Long id){
+        if (id == null)
+            throw new IllegalArgumentException("Member id must not be null");
+        memberRepository.lockById(id);
         Member member = findActiveMember(id);
         if(!loanRepository.findByMemberAndReturnedAtIsNull(member).isEmpty())
             throw new IllegalStateException("Member has active loans");

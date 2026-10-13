@@ -4,6 +4,7 @@ on:
   pull_request:
   push:
     branches: [main]
+    tags: ['v*']
 
 permissions:
   contents: read
@@ -36,6 +37,12 @@ jobs:
           test "$counts" = '100,100,100,100,100,100'
           curl -fsS 'http://127.0.0.1:8080/book?size=1' | jq -e '.totalElements == 100'
           curl -fsS 'http://127.0.0.1:8080/book?available=false&size=1' | jq -e '.totalElements == 20'
+      - name: Check complete loan flow and persistence after restart
+        run: |
+          loan_id="$(./scripts/smoke-demo.sh)"
+          docker compose -f compose.demo.yaml up -d --no-deps --force-recreate --wait app
+          curl -fsS "http://127.0.0.1:8080/loans/$loan_id" | jq -e '.active == false and .returnedAt != null'
+          curl -fsS 'http://127.0.0.1:8080/book?size=1' | jq -e '.totalElements == 100'
       - name: Show container logs on failure
         if: failure()
         run: docker compose -f compose.demo.yaml logs
@@ -44,9 +51,11 @@ jobs:
         run: docker compose -f compose.demo.yaml down --volumes
 
   publish:
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))
     runs-on: ubuntu-latest
     needs: [test, demo]
+    outputs:
+      image: ${{ steps.image.outputs.name }}
     permissions:
       contents: read
       packages: write
@@ -55,7 +64,19 @@ jobs:
       - uses: docker/setup-buildx-action@v3
       - name: Set image name
         id: image
-        run: echo "name=ghcr.io/${GITHUB_REPOSITORY,,}" >> "$GITHUB_OUTPUT"
+        run: |
+          name="ghcr.io/${GITHUB_REPOSITORY,,}"
+          echo "name=$name" >> "$GITHUB_OUTPUT"
+          {
+            echo 'tags<<EOF'
+            echo "$name:sha-$GITHUB_SHA"
+            if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+              echo "$name:${GITHUB_REF#refs/tags/}"
+            else
+              echo "$name:latest"
+            fi
+            echo EOF
+          } >> "$GITHUB_OUTPUT"
       - uses: docker/login-action@v3
         with:
           registry: ghcr.io
@@ -65,8 +86,50 @@ jobs:
         with:
           context: .
           push: true
-          tags: |
-            ${{ steps.image.outputs.name }}:latest
-            ${{ steps.image.outputs.name }}:sha-${{ github.sha }}
+          tags: ${{ steps.image.outputs.tags }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+  verify-published:
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    needs: publish
+    permissions:
+      contents: read
+      packages: read
+    env:
+      BIBLIOAPP_IMAGE: ${{ needs.publish.outputs.image }}:sha-${{ github.sha }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Run published image and smoke test
+        run: |
+          docker compose -f compose.demo.yaml up -d --no-build --pull always --wait --wait-timeout 240
+          ./scripts/smoke-demo.sh
+      - name: Show container logs on failure
+        if: failure()
+        run: docker compose -f compose.demo.yaml logs
+      - name: Stop demo
+        if: always()
+        run: docker compose -f compose.demo.yaml down --volumes
+
+  release:
+    if: github.ref == 'refs/tags/v1.0.0'
+    runs-on: ubuntu-latest
+    needs: verify-published
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Publish GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1 || \
+            gh release create "$GITHUB_REF_NAME" --verify-tag \
+              --title "BiblioApp $GITHUB_REF_NAME" \
+              --notes-file release-notes/v1.0.0.md

@@ -75,7 +75,9 @@ public class BookService {
         return PageResponse.from(page);
     }
 
+    @Transactional
     public BookResponse updateDetails(Long id, String title, int publicationYear, Long authorId, Set<Long> categoryIds){
+        bookRepository.lockById(id);
         Book book = findActiveBook(id);
         Author author = findAuthor(authorId);
         Set<Category> categories = findCategories(categoryIds);
@@ -84,7 +86,9 @@ public class BookService {
         return BookResponse.from(bookRepository.save(book));
     }
 
+    @Transactional
     public BookResponse changeIsbn(Long id, String isbn){
+        bookRepository.lockById(id);
         Book book = findActiveBook(id);
         book.changeIsbn(isbn);
         return BookResponse.from(bookRepository.save(book));
@@ -92,6 +96,9 @@ public class BookService {
 
     @Transactional
     public void deleteBook(Long id){
+        if (id == null)
+            throw new IllegalArgumentException("Book id must not be null");
+        bookRepository.lockById(id);
         Book book = findActiveBook(id);
         if(loanRepository.findByBookAndReturnedAtIsNull(book).isPresent())
             throw new IllegalStateException("Book is loaned");

@@ -16,6 +16,7 @@ services:
       retries: 10
 
   app:
+    image: ${BIBLIOAPP_IMAGE:-biblioapp:demo-local}
     build: .
     environment:
       SPRING_PROFILES_ACTIVE: postgres,demo

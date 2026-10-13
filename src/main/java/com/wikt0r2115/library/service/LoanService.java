@@ -33,7 +33,13 @@ public class LoanService {
 
     @Transactional
     public LoanResponse borrowBook(Long bookId, Long memberId){
+        if (bookId == null)
+            throw new IllegalArgumentException("Book id must not be null");
+        bookRepository.lockById(bookId);
         Book book = findBook(bookId);
+        if (memberId == null)
+            throw new IllegalArgumentException("Member id must not be null");
+        memberRepository.lockById(memberId);
         Member member = findMember(memberId);
 
         if (loanRepository.findByBookAndReturnedAtIsNull(book).isPresent())
@@ -50,6 +56,11 @@ public class LoanService {
 
     @Transactional
     public LoanResponse returnBook(Long loanId){
+        if (loanId == null)
+            throw new IllegalArgumentException("Loan id must not be null");
+        Long bookId = loanRepository.findBookIdByLoanId(loanId)
+                .orElseThrow(() -> new LoanNotFoundException(loanId));
+        bookRepository.lockById(bookId);
         Loan loan = findLoan(loanId);
         Book book = loan.getBook();
 

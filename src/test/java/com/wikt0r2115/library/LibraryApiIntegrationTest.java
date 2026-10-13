@@ -22,11 +22,11 @@ import static org.springframework.test.web.servlet.setup.MockMvcBuilders.webAppC
 
 @SpringBootTest
 @Transactional
-class LibraryApiIntegrationTest {
+abstract class LibraryApiIntegrationTest {
     @Autowired
     private WebApplicationContext context;
 
-    private MockMvc mockMvc;
+    protected MockMvc mockMvc;
 
     @BeforeEach
     void setUp() {
@@ -146,7 +146,7 @@ class LibraryApiIntegrationTest {
                 .andExpect(jsonPath("$.isbn").value("9780136091813"));
     }
 
-    private long createAuthor(String firstName, String lastName) throws Exception {
+    protected long createAuthor(String firstName, String lastName) throws Exception {
         MvcResult result = mockMvc.perform(post("/author")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
@@ -157,7 +157,7 @@ class LibraryApiIntegrationTest {
         return idFrom(result, "$.id");
     }
 
-    private long createCategory(String name) throws Exception {
+    protected long createCategory(String name) throws Exception {
         MvcResult result = mockMvc.perform(post("/category")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
@@ -168,7 +168,7 @@ class LibraryApiIntegrationTest {
         return idFrom(result, "$.categoryId");
     }
 
-    private long createMember(String firstName, String lastName, String email) throws Exception {
+    protected long createMember(String firstName, String lastName, String email) throws Exception {
         MvcResult result = mockMvc.perform(post("/member")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
@@ -179,7 +179,7 @@ class LibraryApiIntegrationTest {
         return idFrom(result, "$.memberId");
     }
 
-    private long createBook(String isbn, String title, long authorId, long categoryId) throws Exception {
+    protected long createBook(String isbn, String title, long authorId, long categoryId) throws Exception {
         MvcResult result = mockMvc.perform(post("/book")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
@@ -191,7 +191,7 @@ class LibraryApiIntegrationTest {
         return idFrom(result, "$.id");
     }
 
-    private long idFrom(MvcResult result, String path) throws Exception {
+    protected long idFrom(MvcResult result, String path) throws Exception {
         Number value = JsonPath.read(result.getResponse().getContentAsString(), path);
         return value.longValue();
     }

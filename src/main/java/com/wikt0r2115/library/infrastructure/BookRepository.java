@@ -12,6 +12,11 @@ import java.util.Optional;
 
 public interface BookRepository extends JpaRepository<Book, Long> {
 
+    // Lock the book before checking or changing its loan state. A scalar query
+    // avoids locking the rows fetched for the book's author and categories.
+    @Query(value = "SELECT book_id FROM book WHERE book_id = :id FOR UPDATE", nativeQuery = true)
+    Optional<Long> lockById(@Param("id") Long id);
+
     @Query("""
             select b from Book b
                     where (b.bookId = :id)
